@@ -1,9 +1,9 @@
 /**
- * PERRON — Module d'enrichissement v5 (Écoles, Vélib', Transports, Bus & Gares réparés)
+ * PERRON — Module d'enrichissement v6 (Stabilité renforcée, Arrêts IDFM optionnels, Écoles & Vélib')
  */
 
 (function () {
-  console.log("%c✅ [PERRON] Module d'enrichissement v5 actif (Transports & Bus réparés)", "color:#10b981;font-weight:bold;");
+  console.log("%c✅ [PERRON] Module d'enrichissement v6 actif", "color:#10b981;font-weight:bold;");
 
   let lastRunSignature = "";
   let currentAbort = null;
@@ -110,12 +110,11 @@
       tabDpe.appendChild(box);
     }
 
-    if (tabEnv && !document.getElementById("slot-lot4-transports")) {
+    if (tabEnv && !document.getElementById("slot-lot1-ecoles")) {
       const wrap = document.createElement("div");
       wrap.className = "space-y-3 mt-3";
       wrap.innerHTML =
         '<div id="slot-lot3-velib" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
-        '<div id="slot-lot4-transports" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-ecoles" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot2-fraicheur" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-chantiers" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
@@ -375,50 +374,6 @@
     } catch (_) {}
   }
 
-  // 8. TRANSPORTS EN COMMUN (MÉTRO, RER, BUS IDFM)
-  async function loadTransportsLive(lat, lon, signal) {
-    const elTrans = document.getElementById("slot-lot4-transports");
-    if (!elTrans) return;
-    elTrans.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🚏 Recherche des arrêts de bus, métros & gares (400m)...</div>';
-    try {
-      const where = encodeURIComponent("within_distance(coordonnees, geom'POINT(" + lon + " " + lat + ")', 4005)");
-      const url = "https://data.iledefrance-mobilites.fr/api/explore/v2.1/catalog/datasets/arrets-lignes-idf/records?where=" + where + "&limit=6";
-      const data = await fetchJsonSafe(url, 4000, signal);
-      const rows = (data && data.results) ? data.results : [];
-
-      if (rows.length === 0) {
-        elTrans.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚏 Transports IDFM (400m)</span><span class="text-[10px] font-mono text-slate-400">Aucun arrêt répertorié</span></div>';
-        return;
-      }
-
-      const rowsHtml = rows.map(r => {
-        const name = r.stop_name || r.nom_arret || "Arrêt / Station";
-        const mode = String(r.route_type || r.mode || "Bus").toLowerCase();
-        let emoji = "🚏";
-        let color = "#38bdf8";
-        if (mode.includes("metro")) { emoji = "🚇"; color = "#f59e0b"; }
-        else if (mode.includes("rail") || mode.includes("train") || mode.includes("rer")) { emoji = "🚆"; color = "#818cf8"; }
-        else if (mode.includes("tram")) { emoji = "🚊"; color = "#34d399"; }
-
-        addMapPin(r.coordonnees || [r.stop_lat, r.stop_lon], emoji, color, name, "Réseau IDFM");
-        return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
-          '<span class="text-white font-medium truncate pr-2">' + emoji + ' ' + name + '</span>' +
-          '<span class="font-mono text-[10px] shrink-0 text-amber-300">IDFM</span>' +
-        '</div>';
-      }).join("");
-
-      elTrans.innerHTML =
-        '<div class="flex items-center justify-between mb-2">' +
-          '<span class="text-xs font-semibold text-white">🚏 Gares, Métros & Bus IDFM (400m)</span>' +
-          '<span class="text-[10px] font-mono text-sky-400">' + rows.length + ' arrêt(s)</span>' +
-        '</div>' +
-        '<div class="space-y-1.5">' + rowsHtml + '</div>';
-    } catch (e) {
-      if (signal.aborted) return;
-      elTrans.innerHTML = '<div class="text-xs text-slate-400">🚏 Arrêts IDFM : Non disponible.</div>';
-    }
-  }
-
   // 9. ÉCOLES (MATERNELLE, PRIMAIRE, COLLÈGE, LYCÉE - PUBLICS & PRIVÉS)
   async function loadEcolesAll(lat, lon, signal) {
     const elEcoles = document.getElementById("slot-lot1-ecoles");
@@ -532,7 +487,6 @@
       loadAntennes(lat, lon, sig),
       loadChaleurUrbaine(lat, lon, sig),
       loadVelibLive(lat, lon, sig),
-      loadTransportsLive(lat, lon, sig),
       loadEcolesAll(lat, lon, sig),
       loadEnvExtras(lat, lon, isParis)
     ]).then(() => {
