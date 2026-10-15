@@ -44,12 +44,11 @@
     if (tabBuilding && !document.getElementById("slot-lot1-georisques")) {
       const wrap = document.createElement("div");
       wrap.className = "space-y-3 mt-3";
-      wrap.innerHTML = `
-        <div id="slot-lot3-commerces" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-        <div id="slot-lot1-georisques" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-        <div id="slot-lot1-urbanisme" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-        <div id="slot-lot2-antennes" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-      `;
+      wrap.innerHTML = 
+        '<div id="slot-lot3-commerces" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot1-georisques" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot1-urbanisme" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot2-antennes" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
       tabBuilding.appendChild(wrap);
     }
 
@@ -63,12 +62,11 @@
     if (tabEnv && !document.getElementById("slot-lot1-ecoles")) {
       const wrap = document.createElement("div");
       wrap.className = "space-y-3 mt-3";
-      wrap.innerHTML = `
-        <div id="slot-lot3-velib" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-        <div id="slot-lot1-ecoles" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-        <div id="slot-lot2-fraicheur" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-        <div id="slot-lot1-chantiers" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>
-      `;
+      wrap.innerHTML = 
+        '<div id="slot-lot3-velib" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot1-ecoles" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot2-fraicheur" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot1-chantiers" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
       tabEnv.appendChild(wrap);
     }
   }
@@ -79,7 +77,7 @@
     if (!el) return;
     el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🛡️ Analyse du sous-sol (API Géorisques)...</div>';
     try {
-      const data = await fetchJsonSafe(`https://georisques.gouv.fr/api/v1/gaspar/risques?latlon=${lon},${lat}&rayon=100`, 3500, signal);
+      const data = await fetchJsonSafe("https://georisques.gouv.fr/api/v1/gaspar/risques?latlon=" + lon + "," + lat + "&rayon=100", 3500, signal);
       const risques = (data && data.data) ? data.data.flatMap(d => d.risques_detail || []) : [];
       const unique = [...new Set(risques.map(r => r.libelle_risque_long || r.libelle_risque).filter(Boolean))];
 
@@ -90,13 +88,12 @@
           }).join("")
         : '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Aucun risque particulier identifié</span>';
 
-      el.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-semibold text-white">🛡️ Sous-sol & Risques Naturels</span>
-          <span class="text-[10px] font-mono text-slate-400">BRGM / Géorisques</span>
-        </div>
-        <div class="flex flex-wrap gap-1.5">${badges}</div>
-      `;
+      el.innerHTML = 
+        '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-xs font-semibold text-white">🛡️ Sous-sol & Risques Naturels</span>' +
+          '<span class="text-[10px] font-mono text-slate-400">BRGM / Géorisques</span>' +
+        '</div>' +
+        '<div class="flex flex-wrap gap-1.5">' + badges + '</div>';
     } catch (e) {
       if (signal.aborted) return;
       el.innerHTML = '<div class="text-xs text-slate-400">🛡️ Sous-sol & Risques : Aucun arrêté spécifique détecté.</div>';
@@ -109,7 +106,7 @@
     if (!el) return;
     el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🏪 Vérification des commerces au RDC (SIRENE 45m)...</div>';
     try {
-      const data = await fetchJsonSafe(`https://recherche-entreprises.api.gouv.fr/near_point?lat=${lat}&long=${lon}&radius=0.045&per_page=12`, 3500, signal);
+      const data = await fetchJsonSafe("https://recherche-entreprises.api.gouv.fr/near_point?lat=" + lat + "&long=" + lon + "&radius=0.045&per_page=12", 3500, signal);
       const results = (data && data.results) ? data.results : [];
       const NUISANCES = {
         "56.10A": "Restaurant",
@@ -136,13 +133,12 @@
       }
 
       if (items.length === 0) {
-        el.innerHTML = `
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-white">🏪 Commerces & RDC (45m)</span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">RDC Calme</span>
-          </div>
-          <p class="text-[11px] text-slate-400 mt-1">Aucun bar, restaurant ou commerce actif recensé au pied de l'immeuble.</p>
-        `;
+        el.innerHTML = 
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-xs font-semibold text-white">🏪 Commerces & RDC (45m)</span>' +
+            '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">RDC Calme</span>' +
+          '</div>' +
+          '<p class="text-[11px] text-slate-400 mt-1">Aucun bar, restaurant ou commerce actif recensé au pied de l\'immeuble.</p>';
         return;
       }
 
@@ -153,24 +149,21 @@
         const titleClass = it.label ? "text-amber-300" : "text-white";
         const borderClass = it.label ? "border-amber-500/30" : "border-slate-800/80";
 
-        return `
-          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border ${borderClass} text-[11px]">
-            <div class="truncate pr-2">
-              <div class="font-semibold ${titleClass} truncate">${it.name}</div>
-              <div class="text-[10px] font-mono text-slate-400 truncate">${it.addr}</div>
-            </div>
-            <span class="text-[10px] font-mono shrink-0 px-1.5 py-0.5 rounded ${badgeClass}">${badgeText}</span>
-          </div>
-        `;
+        return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border ' + borderClass + ' text-[11px]">' +
+          '<div class="truncate pr-2">' +
+            '<div class="font-semibold ' + titleClass + ' truncate">' + it.name + '</div>' +
+            '<div class="text-[10px] font-mono text-slate-400 truncate">' + it.addr + '</div>' +
+          '</div>' +
+          '<span class="text-[10px] font-mono shrink-0 px-1.5 py-0.5 rounded ' + badgeClass + '">' + badgeText + '</span>' +
+        '</div>';
       }).join("");
 
-      el.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-semibold text-white">🏪 Commerces & Activités RDC (45m)</span>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${warnCount > 0 ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${warnCount > 0 ? warnCount + " bar/resto" : items.length + " activité(s)"}</span>
-        </div>
-        <div class="space-y-1.5">${rowsHtml}</div>
-      `;
+      el.innerHTML = 
+        '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-xs font-semibold text-white">🏪 Commerces & Activités RDC (45m)</span>' +
+          '<span class="text-[10px] font-mono px-2 py-0.5 rounded ' + (warnCount > 0 ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30') + '">' + (warnCount > 0 ? warnCount + " bar/resto" : items.length + " activité(s)") + '</span>' +
+        '</div>' +
+        '<div class="space-y-1.5">' + rowsHtml + '</div>';
     } catch (e) {
       if (signal.aborted) return;
       el.innerHTML = '<div class="text-xs text-slate-400">🏪 Commerces RDC : Données SIRENE indisponibles.</div>';
@@ -193,23 +186,27 @@
         el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span><span class="text-[10px] font-mono text-emerald-400">Aucun dossier récent</span></div>';
         return;
       }
-      el.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span>
-          <span class="text-[10px] font-mono text-amber-300">${rows.length} dossier(s)</span>
-        </div>
-        <div class="space-y-1.5">
-          ${rows.map(r => `
-            <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">
-              <div class="flex justify-between font-mono text-[10px] text-amber-300">
-                <span>${r.type_dossier || "Déclaration"} • ${r.numero_voirie \vert{}\vert{} ""} ${r.nom_voirie || ""}</span>
-                <span class="text-slate-400">${(r.date_depot || "").slice(0, 10)}</span>
-              </div>
-              <div class="text-[10px] text-slate-300 mt-0.5">${(r.nature_travaux || r.description_travaux || "Travaux sur bâti existant").slice(0, 80)}</div>
-            </div>
-          `).join("")}
-        </div>
-      `;
+      const rowsHtml = rows.map(r => {
+        const typeDossier = r.type_dossier || "Déclaration";
+        const numVoirie = r.numero_voirie || "";
+        const nomVoirie = r.nom_voirie || "";
+        const dateDepot = (r.date_depot || "").slice(0, 10);
+        const desc = (r.nature_travaux || r.description_travaux || "Travaux sur bâti existant").slice(0, 80);
+        return '<div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+          '<div class="flex justify-between font-mono text-[10px] text-amber-300">' +
+            '<span>' + typeDossier + ' • ' + numVoirie + ' ' + nomVoirie + '</span>' +
+            '<span class="text-slate-400">' + dateDepot + '</span>' +
+          '</div>' +
+          '<div class="text-[10px] text-slate-300 mt-0.5">' + desc + '</div>' +
+        '</div>';
+      }).join("");
+
+      el.innerHTML = 
+        '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span>' +
+          '<span class="text-[10px] font-mono text-amber-300">' + rows.length + ' dossier(s)</span>' +
+        '</div>' +
+        '<div class="space-y-1.5">' + rowsHtml + '</div>';
     } catch (e) {
       if (signal.aborted) return;
       el.innerHTML = '<div class="text-xs text-slate-400">🏗️ Urbanisme : Aucun dossier détecté.</div>';
@@ -229,13 +226,12 @@
         return;
       }
       const ops = [...new Set(rows.map(r => r.nom_op || r.operateur).filter(Boolean))];
-      el.innerHTML = `
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-xs font-semibold text-white">📡 Antennes-Relais 4G/5G (180m)</span>
-          <span class="text-[10px] font-mono text-sky-300">${rows.length} support(s) ANFR</span>
-        </div>
-        <p class="text-[11px] text-slate-300">Opérateurs détectés : <strong>${ops.slice(0, 4).join(", ") || "Multi-opérateurs"}</strong></p>
-      `;
+      el.innerHTML = 
+        '<div class="flex items-center justify-between mb-1">' +
+          '<span class="text-xs font-semibold text-white">📡 Antennes-Relais 4G/5G (180m)</span>' +
+          '<span class="text-[10px] font-mono text-sky-300">' + rows.length + ' support(s) ANFR</span>' +
+        '</div>' +
+        '<p class="text-[11px] text-slate-300">Opérateurs détectés : <strong>' + (ops.slice(0, 4).join(", ") || "Multi-opérateurs") + '</strong></p>';
     } catch (e) {
       if (signal.aborted) return;
       el.innerHTML = '<div class="text-xs text-slate-400">📡 Antennes ANFR : Non disponible.</div>';
@@ -250,13 +246,12 @@
       const data = await fetchJsonSafe("https://france-chaleur-urbaine.beta.gouv.fr/api/v1/eligibility?lat=" + lat + "&lon=" + lon, 3500, signal);
       const dist = (data && typeof data.distance === "number") ? Math.round(data.distance) : null;
       const ok = Boolean(data && (data.isEligible || (dist !== null && dist <= 150)));
-      el.innerHTML = `
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-xs font-semibold text-white">🔥 Réseau de Chaleur Urbain</span>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${ok ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-300'}">${dist !== null ? "À " + dist + " m" : (ok ? "Proche" : "Hors réseau")}</span>
-        </div>
-        <p class="text-[11px] text-slate-300">${ok ? "Immeuble raccordable au réseau de chauffage urbain (CPCU / Géothermie)." : "Aucun réseau de chaleur détecté sous la voirie immédiate."}</p>
-      `;
+      el.innerHTML = 
+        '<div class="flex items-center justify-between mb-1">' +
+          '<span class="text-xs font-semibold text-white">🔥 Réseau de Chaleur Urbain</span>' +
+          '<span class="text-[10px] font-mono px-2 py-0.5 rounded ' + (ok ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-300') + '">' + (dist !== null ? "À " + dist + " m" : (ok ? "Proche" : "Hors réseau")) + '</span>' +
+        '</div>' +
+        '<p class="text-[11px] text-slate-300">' + (ok ? "Immeuble raccordable au réseau de chauffage urbain (CPCU / Géothermie)." : "Aucun réseau de chaleur détecté sous la voirie immédiate.") + '</p>';
     } catch (e) {
       if (signal.aborted) return;
       el.innerHTML = '<div class="text-xs text-slate-400">🔥 Réseau de chaleur : Vérification indisponible.</div>';
@@ -279,15 +274,13 @@
         el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏢 Parc Social (75m)</span><span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">100% Parc Privé</span></div>';
         return;
       }
-      el.innerHTML = `
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="text-xs font-semibold text-white">🏢 Programmes Sociaux (75m)</span>
-          <span class="text-[10px] font-mono text-indigo-300">${rows.length} programme(s)</span>
-        </div>
-        <div class="space-y-1">
-          ${rows.map(r => `<div class="text-[11px] text-slate-300 flex justify-between"><span>${r.bs_nom || "Bailleur social"}</span><span class="font-mono text-indigo-300">${r.nb_total_logements_finances || "—"} logts</span></div>`).join("")}
-        </div>
-      `;
+      const rowsHtml = rows.map(r => '<div class="text-[11px] text-slate-300 flex justify-between"><span>' + (r.bs_nom || "Bailleur social") + '</span><span class="font-mono text-indigo-300">' + (r.nb_total_logements_finances || "—") + ' logts</span></div>').join("");
+      el.innerHTML = 
+        '<div class="flex items-center justify-between mb-1.5">' +
+          '<span class="text-xs font-semibold text-white">🏢 Programmes Sociaux (75m)</span>' +
+          '<span class="text-[10px] font-mono text-indigo-300">' + rows.length + ' programme(s)</span>' +
+        '</div>' +
+        '<div class="space-y-1">' + rowsHtml + '</div>';
     } catch (e) {
       if (signal.aborted) return;
     }
@@ -301,22 +294,22 @@
         const where = encodeURIComponent("within_distance(coordonnees_geo, geom'POINT(" + lon + " " + lat + ")', 250m)");
         const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?where=" + where + "&limit=3", 3500, signal);
         const rows = (data && data.results) ? data.results : [];
-        elVelib.innerHTML = rows.length === 0
-          ? '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Vélib\' Métropole (250m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 250m</span></div>'
-          : `
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-semibold text-white">🚲 Stations Vélib' Temps Réel (250m)</span>
-              <span class="text-[10px] font-mono text-emerald-400">${rows.length} station(s)</span>
-            </div>
-            <div class="space-y-1.5">
-              ${rows.map(s => `
-                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">
-                  <span class="text-white font-medium truncate pr-2">${s.name}</span>
-                  <span class="font-mono text-[10px] shrink-0 text-sky-300">⚡${s.ebike \vert{}\vert{} 0} • 🚲${s.mechanical || 0}</span>
-                </div>
-              `).join("")}
-            </div>
-          `;
+        if (rows.length === 0) {
+          elVelib.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Vélib\' Métropole (250m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 250m</span></div>';
+        } else {
+          const rowsHtml = rows.map(s => 
+            '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+              '<span class="text-white font-medium truncate pr-2">' + s.name + '</span>' +
+              '<span class="font-mono text-[10px] shrink-0 text-sky-300">⚡' + (s.ebike || 0) + ' • 🚲' + (s.mechanical || 0) + '</span>' +
+            '</div>'
+          ).join("");
+          elVelib.innerHTML = 
+            '<div class="flex items-center justify-between mb-2">' +
+              '<span class="text-xs font-semibold text-white">🚲 Stations Vélib\' Temps Réel (250m)</span>' +
+              '<span class="text-[10px] font-mono text-emerald-400">' + rows.length + ' station(s)</span>' +
+            '</div>' +
+            '<div class="space-y-1.5">' + rowsHtml + '</div>';
+        }
       } catch (_) {}
     }
 
@@ -334,23 +327,20 @@
             (ipsData.results || []).forEach(r => { if (r.uai && !ipsMap[r.uai]) ipsMap[r.uai] = Math.round(Number(r.ips)); });
           } catch (_) {}
 
-          elEcoles.innerHTML = `
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-semibold text-white">🎓 Collèges & Indice IPS (950m)</span>
-              <span class="text-[10px] font-mono text-slate-400">Moy. nat : 105</span>
-            </div>
-            <div class="space-y-1.5">
-              ${schools.map(s => {
-                const ips = ipsMap[s.identifiant_de_l_etablissement];
-                return `
-                  <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">
-                    <span class="text-white truncate pr-2">${s.nom_etablissement} (${s.statut_public_prive || "Public"})</span>
-                    <span class="font-mono text-[10px] shrink-0 px-2 py-0.5 rounded bg-amber-500/15 text-amber-300">${ips ? "IPS " + ips : "Secteur"}</span>
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          `;
+          const schoolsHtml = schools.map(s => {
+            const ips = ipsMap[s.identifiant_de_l_etablissement];
+            return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+              '<span class="text-white truncate pr-2">' + s.nom_etablissement + ' (' + (s.statut_public_prive || "Public") + ')</span>' +
+              '<span class="font-mono text-[10px] shrink-0 px-2 py-0.5 rounded bg-amber-500/15 text-amber-300">' + (ips ? "IPS " + ips : "Secteur") + '</span>' +
+            '</div>';
+          }).join("");
+
+          elEcoles.innerHTML = 
+            '<div class="flex items-center justify-between mb-2">' +
+              '<span class="text-xs font-semibold text-white">🎓 Collèges & Indice IPS (950m)</span>' +
+              '<span class="text-[10px] font-mono text-slate-400">Moy. nat : 105</span>' +
+            '</div>' +
+            '<div class="space-y-1.5">' + schoolsHtml + '</div>';
         } else {
           elEcoles.innerHTML = '<div class="text-xs text-slate-400">🎓 Collèges : Aucun établissement à moins de 950 m.</div>';
         }
@@ -365,12 +355,7 @@
           const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 300m)");
           const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/ilots-de-fraicheur-espaces-verts-frais/records?where=" + where + "&limit=3", 3500, signal);
           const rows = (data && data.results) ? data.results : [];
-          elFraicheur.innerHTML = `
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white">🌳 Îlots de Fraîcheur (300m)</span>
-              <span class="text-[10px] font-mono ${rows.length > 0 ? 'text-emerald-400' : 'text-amber-300'}">${rows.length > 0 ? rows.length + " espace(s) frais" : "Zone minérale dense"}</span>
-            </div>
-          `;
+          elFraicheur.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🌳 Îlots de Fraîcheur (300m)</span><span class="text-[10px] font-mono ' + (rows.length > 0 ? 'text-emerald-400' : 'text-amber-300') + '">' + (rows.length > 0 ? rows.length + " espace(s) frais" : "Zone minérale dense") + '</span></div>';
         } catch (_) {}
       }
       if (elChantiers) {
@@ -378,12 +363,7 @@
           const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 200m)");
           const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/chantiers-perturbants/records?where=" + where + "&limit=3", 3500, signal);
           const rows = (data && data.results) ? data.results : [];
-          elChantiers.innerHTML = `
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white">🚧 Chantiers Perturbants (200m)</span>
-              <span class="text-[10px] font-mono ${rows.length === 0 ? 'text-emerald-400' : 'text-rose-400'}">${rows.length === 0 ? "0 chantier actif" : rows.length + " chantier(s) en cours"}</span>
-            </div>
-          `;
+          elChantiers.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚧 Chantiers Perturbants (200m)</span><span class="text-[10px] font-mono ' + (rows.length === 0 ? 'text-emerald-400' : 'text-rose-400') + '">' + (rows.length === 0 ? "0 chantier actif" : rows.length + " chantier(s) en cours") + '</span></div>';
         } catch (_) {}
       }
     }
