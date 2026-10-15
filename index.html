@@ -1259,13 +1259,8 @@
       let ambientFetchController = null;
       async function refreshAmbientMapPoints() {
         syncCadastreVisibility();
-        const z = map.getZoom();
-        const dpeEnabled = document.getElementById("toggle-dpe-points").checked;
-
-        if (!dpeEnabled || z < 15) {
-          ambientDpeGroup.clearLayers();
-          return;
-        }
+        ambientDpeGroup.clearLayers();
+      }
 
         const center = map.getCenter();
         try {
