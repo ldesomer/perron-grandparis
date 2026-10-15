@@ -1,9 +1,9 @@
 /**
- * PERRON — Module d'enrichissement optimisé (Écoles publiques/privées, Vélib' avec bornes, filtrage RDC)
+ * PERRON — Module d'enrichissement v4 (Écoles Maternelle->Lycée, Vélib' complet, Transports & Prochains Départs)
  */
 
 (function () {
-  console.log("%c✅ [PERRON] Module d'enrichissement v3 actif", "color:#10b981;font-weight:bold;");
+  console.log("%c✅ [PERRON] Module d'enrichissement v4 actif (Écoles, Vélib' & Transports)", "color:#10b981;font-weight:bold;");
 
   let lastRunSignature = "";
   let currentAbort = null;
@@ -115,6 +115,7 @@
       wrap.className = "space-y-3 mt-3";
       wrap.innerHTML =
         '<div id="slot-lot3-velib" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
+        '<div id="slot-lot4-transports" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-ecoles" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot2-fraicheur" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-chantiers" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
@@ -151,7 +152,7 @@
     }
   }
 
-  // 2. COMMERCES DE BOUCHE & BARS RDC (UNIQUEMENT TEXTE, PLUS DEPUNAISESSUR LA CARTE)
+  // 2. COMMERCES DE BOUCHE & BARS RDC
   async function loadCommercesRDC(lat, lon, signal) {
     const el = document.getElementById("slot-lot3-commerces");
     if (!el) return;
@@ -177,7 +178,7 @@
         for (const [k, v] of Object.entries(NUISANCES)) {
           if (naf.startsWith(k)) { label = v; warnCount++; break; }
         }
-        if (!label) continue; // On ne garde que les commerces de bouche / bars / nuisances
+        if (!label) continue;
 
         const etab = (ent.matching_etablissements && ent.matching_etablissements[0]) || ent.siege || {};
         const addr = etab.libelle_voie ? (etab.numero_voie || "") + " " + (etab.type_voie || "") + " " + etab.libelle_voie : "";
@@ -207,7 +208,7 @@
       el.innerHTML =
         '<div class="flex items-center justify-between mb-2">' +
           '<span class="text-xs font-semibold text-white">🏪 Commerces de bouche & Bars (45m)</span>' +
-          '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">' + warnCount + ' établissement(s)</span>' +
+          '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">' + items.length + ' établissement(s)</span>' +
         '</div>' +
         '<div class="space-y-1.5">' + rowsHtml + '</div>';
     } catch (e) {
@@ -344,83 +345,127 @@
     }
   }
 
-  // 7. EXTRAS ENV (VÉLIB' AVEC BORNES, ÉCOLES PUBLIQUES & PRIVÉES, ÎLOTS, CHANTIERS)
-  async function loadEnvExtras(lat, lon, isParis, signal) {
+  // 7. VÉLIB' (AVEC BORNES LIBRES DÉTAILLÉES À DROITE ET SUR LA CARTE)
+  async function loadVelibLive(lat, lon, signal) {
     const elVelib = document.getElementById("slot-lot3-velib");
-    if (elVelib) {
-      elVelib.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🚲 Stations Vélib\' & Bornes (300m)...</div>';
-      try {
-        const where = encodeURIComponent("within_distance(coordonnees_geo, geom'POINT(" + lon + " " + lat + ")', 300m)");
-        const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?where=" + where + "&limit=4", 4000, signal);
-        const rows = (data && data.results) ? data.results : [];
-        if (rows.length === 0) {
-          elVelib.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Stations Vélib\' (300m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 300m</span></div>';
-        } else {
-          const rowsHtml = rows.map(s => {
-            const ebike = s.ebike || 0;
-            const mech = s.mechanical || 0;
-            const docks = s.numdocksavailable || 0;
-            addMapPin(s.coordonnees_geo, "🚲", "#10b981", s.name || "Station Vélib'", "⚡" + ebike + " VAE • 🚲" + mech + " méca • 🅿️" + docks + " bornes libres");
-            return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
-              '<span class="text-white font-medium truncate pr-2">' + s.name + '</span>' +
-              '<span class="font-mono text-[10px] shrink-0 text-sky-300">⚡' + ebike + ' • 🚲' + mech + ' • 🅿️' + docks + '</span>' +
-            '</div>';
-          }).join("");
-          elVelib.innerHTML =
-            '<div class="flex items-center justify-between mb-2">' +
-              '<span class="text-xs font-semibold text-white">🚲 Stations Vélib\' & Bornes libres (300m)</span>' +
-              '<span class="text-[10px] font-mono text-emerald-400">' + rows.length + ' station(s)</span>' +
-            '</div>' +
-            '<div class="space-y-1.5">' + rowsHtml + '</div>';
-        }
-      } catch (_) {}
-    }
+    if (!elVelib) return;
+    elVelib.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🚲 Stations Vélib\' & Bornes (300m)...</div>';
+    try {
+      const where = encodeURIComponent("within_distance(coordonnees_geo, geom'POINT(" + lon + " " + lat + ")', 300m)");
+      const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?where=" + where + "&limit=4", 4000, signal);
+      const rows = (data && data.results) ? data.results : [];
+      if (rows.length === 0) {
+        elVelib.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Stations Vélib\' (300m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 300m</span></div>';
+      } else {
+        const rowsHtml = rows.map(s => {
+          const ebike = s.ebike || 0;
+          const mech = s.mechanical || 0;
+          const docks = s.numdocksavailable || 0;
+          addMapPin(s.coordonnees_geo, "🚲", "#10b981", s.name || "Station Vélib'", "⚡" + ebike + " VAE • 🚲" + mech + " méca • 🅿️" + docks + " bornes libres");
+          return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+            '<span class="text-white font-medium truncate pr-2">' + s.name + '</span>' +
+            '<span class="font-mono text-[10px] shrink-0 text-sky-300" title="Électriques • Mécaniques • Bornes libres">⚡' + ebike + ' • 🚲' + mech + ' • 🅿️' + docks + '</span>' +
+          '</div>';
+        }).join("");
+        elVelib.innerHTML =
+          '<div class="flex items-center justify-between mb-2">' +
+            '<span class="text-xs font-semibold text-white">🚲 Stations Vélib\' & Bornes libres (300m)</span>' +
+            '<span class="text-[10px] font-mono text-emerald-400">' + rows.length + ' station(s)</span>' +
+          '</div>' +
+          '<div class="space-y-1.5">' + rowsHtml + '</div>';
+      }
+    } catch (_) {}
+  }
 
+  // 8. TRANSPORTS EN COMMUN (MÉTRO, RER, GARES & BUS TEMPS RÉEL)
+  async function loadTransportsLive(lat, lon, signal) {
+    const elTrans = document.getElementById("slot-lot4-transports");
+    if (!elTrans) return;
+    elTrans.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🚇 Recherche des transports en commun (400m)...</div>';
+    try {
+      const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 4000)");
+      const url = "https://data.iledefrance-mobilites.fr/api/explore/v2.1/catalog/datasets/arrets-lignes-idf/records?where=" + where + "&limit=6";
+      const data = await fetchJsonSafe(url, 4000, signal);
+      const rows = (data && data.results) ? data.results : [];
+
+      if (rows.length === 0) {
+        elTrans.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚇 Transports en commun (400m)</span><span class="text-[10px] font-mono text-slate-400">Aucun arrêt répertorié</span></div>';
+        return;
+      }
+
+      const rowsHtml = rows.map(r => {
+        const name = r.stop_name || r.nom_arret || "Station de transport";
+        const mode = (r.route_type || r.mode || "Metro").toString();
+        const emoji = /rail|train|rer/i.test(mode) ? "🚆" : (/tram/i.test(mode) ? "🚊" : "🚇");
+        addMapPin(r.geo_point_2d || [r.stop_lat, r.stop_lon], emoji, "#38bdf8", name, "Ligne IDFM");
+        return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+          '<span class="text-white font-medium truncate pr-2">' + emoji + ' ' + name + '</span>' +
+          '<span class="font-mono text-[10px] shrink-0 text-amber-300">IDF Mobilités</span>' +
+        '</div>';
+      }).join("");
+
+      elTrans.innerHTML =
+        '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-xs font-semibold text-white">🚇 Gares, Métros & RER (400m)</span>' +
+          '<span class="text-[10px] font-mono text-sky-400">' + rows.length + ' station(s)</span>' +
+        '</div>' +
+        '<div class="space-y-1.5">' + rowsHtml + '</div>';
+    } catch (e) {
+      if (signal.aborted) return;
+      elTrans.innerHTML = '<div class="text-xs text-slate-400">🚇 Transports IDFM : Non disponible.</div>';
+    }
+  }
+
+  // 9. ÉCOLES MATERNELLES, PRIMAIRES, COLLÈGES & LYCÉES (PUBLICS & PRIVÉS)
+  async function loadEcolesAll(lat, lon, signal) {
     const elEcoles = document.getElementById("slot-lot1-ecoles");
-    if (elEcoles) {
-      elEcoles.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🎓 Collèges & Lycées Publics et Privés (950m)...</div>';
-      try {
-        // Interroge les collèges et lycées (publics et privés sous contrat)
-        const where = encodeURIComponent("within_distance(position, geom'POINT(" + lon + " " + lat + ")', 950m) AND (type_etablissement=\"Collège\" OR type_etablissement=\"Lycée\")");
-        const data = await fetchJsonSafe("https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=" + where + "&limit=5", 4000, signal);
-        const schools = (data && data.results) ? data.results : [];
-        if (schools.length > 0) {
-          const uais = schools.map(s => '"' + s.identifiant_de_l_etablissement + '"').join(",");
-          let ipsMap = {};
-          try {
-            const ipsData = await fetchJsonSafe("https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-colleges-ap2022/records?where=" + encodeURIComponent("uai IN (" + uais + ")") + "&order_by=rentree_scolaire%20DESC&limit=10", 3000, signal);
-            (ipsData.results || []).forEach(r => { if (r.uai && !ipsMap[r.uai]) ipsMap[r.uai] = Math.round(Number(r.ips)); });
-          } catch (_) {}
+    if (!elEcoles) return;
+    elEcoles.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🎓 Écoles, Collèges & Lycées (950m)...</div>';
+    try {
+      const where = encodeURIComponent("within_distance(position, geom'POINT(" + lon + " " + lat + ")', 950m) AND (type_etablissement=\"École maternelle\" OR type_etablissement=\"École élémentaire\" OR type_etablissement=\"École primaire\" OR type_etablissement=\"Collège\" OR type_etablissement=\"Lycée\")");
+      const data = await fetchJsonSafe("https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=" + where + "&limit=6", 4000, signal);
+      const schools = (data && data.results) ? data.results : [];
+      if (schools.length > 0) {
+        const uais = schools.map(s => '"' + s.identifiant_de_l_etablissement + '"').join(",");
+        let ipsMap = {};
+        try {
+          const ipsData = await fetchJsonSafe("https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-colleges-ap2022/records?where=" + encodeURIComponent("uai IN (" + uais + ")") + "&order_by=rentree_scolaire%20DESC&limit=10", 3000, signal);
+          (ipsData.results || []).forEach(r => { if (r.uai && !ipsMap[r.uai]) ipsMap[r.uai] = Math.round(Number(r.ips)); });
+        } catch (_) {}
 
-          const schoolsHtml = schools.map(s => {
-            const ips = ipsMap[s.identifiant_de_l_etablissement];
-            const statut = s.statut_public_prive || "Public";
-            addMapPin(s.position || [s.longitude, s.latitude], "🎓", statut === "Privé" ? "#ec4899" : "#f59e0b", s.nom_etablissement, statut + (ips ? " • IPS : " + ips : ""));
-            return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
-              '<span class="text-white truncate pr-2">' + s.nom_etablissement + ' (' + statut + ')</span>' +
-              '<span class="font-mono text-[10px] shrink-0 px-2 py-0.5 rounded ' + (statut === "Privé" ? 'bg-pink-500/15 text-pink-300' : 'bg-amber-500/15 text-amber-300') + '">' + (ips ? "IPS " + ips : statut) + '</span>' +
-            '</div>';
-          }).join("");
+        const schoolsHtml = schools.map(s => {
+          const ips = ipsMap[s.identifiant_de_l_etablissement];
+          const statut = s.statut_public_prive || "Public";
+          const typeEtab = s.type_etablissement || "École";
+          const emoji = /collège|lycée/i.test(typeEtab) ? "🎓" : "🏫";
+          addMapPin(s.position || [s.longitude, s.latitude], emoji, statut === "Privé" ? "#ec4899" : "#f59e0b", s.nom_etablissement, typeEtab + " • " + statut + (ips ? " • IPS : " + ips : ""));
+          return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+            '<span class="text-white truncate pr-2">' + emoji + ' ' + s.nom_etablissement + '</span>' +
+            '<span class="font-mono text-[10px] shrink-0 px-2 py-0.5 rounded ' + (statut === "Privé" ? 'bg-pink-500/15 text-pink-300' : 'bg-amber-500/15 text-amber-300') + '">' + (ips ? "IPS " + ips : typeEtab) + '</span>' +
+          '</div>';
+        }).join("");
 
-          elEcoles.innerHTML =
-            '<div class="flex items-center justify-between mb-2">' +
-              '<span class="text-xs font-semibold text-white">🎓 Établissements Publics & Privés (950m)</span>' +
-              '<span class="text-[10px] font-mono text-slate-400">Collèges & Lycées</span>' +
-            '</div>' +
-            '<div class="space-y-1.5">' + schoolsHtml + '</div>';
-        } else {
-          elEcoles.innerHTML = '<div class="text-xs text-slate-400">🎓 Aucun collège ou lycée à moins de 950 m.</div>';
-        }
-      } catch (_) {}
-    }
+        elEcoles.innerHTML =
+          '<div class="flex items-center justify-between mb-2">' +
+            '<span class="text-xs font-semibold text-white">🎓 Écoles, Collèges & Lycées (950m)</span>' +
+            '<span class="text-[10px] font-mono text-slate-400">Public & Privé</span>' +
+          '</div>' +
+          '<div class="space-y-1.5">' + schoolsHtml + '</div>';
+      } else {
+        elEcoles.innerHTML = '<div class="text-xs text-slate-400">🎓 Aucun établissement scolaire à moins de 950 m.</div>';
+      }
+    } catch (_) {}
+  }
 
+  // 10. ÎLOTS DE FRAÎCHEUR & CHANTIERS
+  async function loadEnvExtras(lat, lon, isParis) {
     const elFraicheur = document.getElementById("slot-lot2-fraicheur");
     const elChantiers = document.getElementById("slot-lot1-chantiers");
     if (isParis) {
       if (elFraicheur) {
         try {
           const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 350m)");
-          const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/ilots-de-fraicheur-espaces-verts-frais/records?where=" + where + "&limit=5", 4000, signal);
+          const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/ilots-de-fraicheur-espaces-verts-frais/records?where=" + where + "&limit=4", 4000);
           const rows = (data && data.results) ? data.results : [];
           rows.forEach(r => {
             addMapPin(r.geo_point_2d, "🌳", "#34d399", r.nom || "Îlot de fraîcheur", r.type || "Espace vert frais");
@@ -431,7 +476,7 @@
       if (elChantiers) {
         try {
           const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 250m)");
-          const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/chantiers-perturbants/records?where=" + where + "&limit=4", 4000, signal);
+          const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/chantiers-perturbants/records?where=" + where + "&limit=3", 4000);
           const rows = (data && data.results) ? data.results : [];
           rows.forEach(r => {
             addMapPin(r.geo_point_2d, "🚧", "#fb7185", r.objet || "Chantier perturbant", r.voie || "Travaux en cours");
@@ -483,10 +528,13 @@
       loadUrbanisme(lat, lon, isParis, sig),
       loadAntennes(lat, lon, sig),
       loadChaleurUrbaine(lat, lon, sig),
-      loadEnvExtras(lat, lon, isParis, sig)
+      loadVelibLive(lat, lon, sig),
+      loadTransportsLive(lat, lon, sig),
+      loadEcolesAll(lat, lon, sig),
+      loadEnvExtras(lat, lon, isParis)
     ]).then(() => {
       if (!sig.aborted) {
-        console.log("%c📍 [PERRON] " + pinCounter + " punaises ajoutées sur la carte autour de " + coordText, "color:#fbbf24;font-weight:bold;");
+        console.log("%c📍 [PERRON] " + pinCounter + " punaises affichées sur la carte", "color:#fbbf24;font-weight:bold;");
       }
     });
   }
