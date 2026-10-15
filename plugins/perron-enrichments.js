@@ -73,11 +73,11 @@
     }
   }
 
-  // 1. GÉORISQUES (Sous-sol, Carrières, Inondation, Argiles)
+  // 1. GÉORISQUES
   async function loadGeorisques(lat, lon, signal) {
     const el = document.getElementById("slot-lot1-georisques");
     if (!el) return;
-    el.innerHTML = `<div class="text-[11px] font-mono text-slate-400 animate-pulse">🛡️ Analyse du sous-sol (API Géorisques)...</div>`;
+    el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🛡️ Analyse du sous-sol (API Géorisques)...</div>';
     try {
       const data = await fetchJsonSafe(`https://georisques.gouv.fr/api/v1/gaspar/risques?latlon=${lon},${lat}&rayon=100`, 3500, signal);
       const risques = (data && data.data) ? data.data.flatMap(d => d.risques_detail || []) : [];
@@ -86,9 +86,9 @@
       const badges = unique.length > 0
         ? unique.slice(0, 6).map(r => {
             const warn = /inondation|mouvement|carrière|argile|tassement/i.test(r);
-            return `<span class="text-[10px] font-mono px-2 py-0.5 rounded border ${warn ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-slate-800 text-slate-300 border-slate-700'}">${r}</span>`;
+            return '<span class="text-[10px] font-mono px-2 py-0.5 rounded border ' + (warn ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-slate-800 text-slate-300 border-slate-700') + '">' + r + '</span>';
           }).join("")
-        : `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Aucun risque particulier identifié</span>`;
+        : '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Aucun risque particulier identifié</span>';
 
       el.innerHTML = `
         <div class="flex items-center justify-between mb-2">
@@ -99,7 +99,7 @@
       `;
     } catch (e) {
       if (signal.aborted) return;
-      el.innerHTML = `<div class="text-xs text-slate-400">🛡️ Sous-sol & Risques : Aucun arrêté spécifique détecté.</div>`;
+      el.innerHTML = '<div class="text-xs text-slate-400">🛡️ Sous-sol & Risques : Aucun arrêté spécifique détecté.</div>';
     }
   }
 
@@ -107,7 +107,7 @@
   async function loadCommercesRDC(lat, lon, signal) {
     const el = document.getElementById("slot-lot3-commerces");
     if (!el) return;
-    el.innerHTML = `<div class="text-[11px] font-mono text-slate-400 animate-pulse">🏪 Vérification des commerces au RDC (SIRENE 45m)...</div>`;
+    el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🏪 Vérification des commerces au RDC (SIRENE 45m)...</div>';
     try {
       const data = await fetchJsonSafe(`https://recherche-entreprises.api.gouv.fr/near_point?lat=${lat}&long=${lon}&radius=0.045&per_page=12`, 3500, signal);
       const results = (data && data.results) ? data.results : [];
@@ -125,7 +125,7 @@
       for (const ent of results) {
         if (ent.etat_administratif && ent.etat_administratif !== "A") continue;
         const naf = ent.activite_principale || "";
-        if (/^(68\.|64\.|70\.|82\.|62\.|58\.|69\.|71\.)/.test(naf)) continue; // Ignore bureaux/SCI
+        if (/^(68\.|64\.|70\.|82\.|62\.|58\.|69\.|71\.)/.test(naf)) continue;
         let label = null;
         for (const [k, v] of Object.entries(NUISANCES)) {
           if (naf.startsWith(k)) { label = v; warnCount++; break; }
@@ -147,15 +147,22 @@
       }
 
       items.sort((a, b) => (b.label ? 1 : 0) - (a.label ? 1 : 0));
-      const rowsHtml = items.slice(0, 4).map(it => `
-        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border ${it.label ? 'border-amber-500/30' : 'border-slate-800/80'} text-[11px]">
-          <div class="truncate pr-2">
-            <div class="font-semibold ${it.label ? 'text-amber-300' : 'text-white'} truncate">${it.name}</div>
-            <div class="text-[10px] font-mono text-slate-400 truncate">${it.addr}</div>
+      const rowsHtml = items.slice(0, 4).map(it => {
+        const badgeText = it.label ? it.label : ("NAF " + it.naf);
+        const badgeClass = it.label ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-300";
+        const titleClass = it.label ? "text-amber-300" : "text-white";
+        const borderClass = it.label ? "border-amber-500/30" : "border-slate-800/80";
+
+        return `
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border ${borderClass} text-[11px]">
+            <div class="truncate pr-2">
+              <div class="font-semibold ${titleClass} truncate">${it.name}</div>
+              <div class="text-[10px] font-mono text-slate-400 truncate">${it.addr}</div>
+            </div>
+            <span class="text-[10px] font-mono shrink-0 px-1.5 py-0.5 rounded ${badgeClass}">${badgeText}</span>
           </div>
-          <span class="text-[10px] font-mono shrink-0 px-1.5 py-0.5 rounded ${it.label ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-300'}">${it.label || ("NAF " + it.naf)}</span>
-        </div>
-      `).join("");
+        `;
+      }).join("");
 
       el.innerHTML = `
         <div class="flex items-center justify-between mb-2">
@@ -166,16 +173,16 @@
       `;
     } catch (e) {
       if (signal.aborted) return;
-      el.innerHTML = `<div class="text-xs text-slate-400">🏪 Commerces RDC : Données SIRENE indisponibles.</div>`;
+      el.innerHTML = '<div class="text-xs text-slate-400">🏪 Commerces RDC : Données SIRENE indisponibles.</div>';
     }
   }
 
-  // 3. PERMIS & TRAVAUX D'URBANISME (Paris 120m)
+  // 3. URBANISME
   async function loadUrbanisme(lat, lon, isParis, signal) {
     const el = document.getElementById("slot-lot1-urbanisme");
     if (!el) return;
     if (!isParis) {
-      el.innerHTML = `<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements</span><span class="text-[10px] font-mono text-slate-500">Périmètre Paris (75)</span></div>`;
+      el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements</span><span class="text-[10px] font-mono text-slate-500">Périmètre Paris (75)</span></div>';
       return;
     }
     try {
@@ -183,7 +190,7 @@
       const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/autorisations-d-urbanisme-hors-permis-de-demolir/records?where=${where}&order_by=date_depot%20DESC&limit=3`, 3500, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
-        el.innerHTML = `<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span><span class="text-[10px] font-mono text-emerald-400">Aucun dossier récent</span></div>`;
+        el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span><span class="text-[10px] font-mono text-emerald-400">Aucun dossier récent</span></div>';
         return;
       }
       el.innerHTML = `
@@ -205,11 +212,11 @@
       `;
     } catch (e) {
       if (signal.aborted) return;
-      el.innerHTML = `<div class="text-xs text-slate-400">🏗️ Urbanisme : Aucun dossier détecté.</div>`;
+      el.innerHTML = '<div class="text-xs text-slate-400">🏗️ Urbanisme : Aucun dossier détecté.</div>';
     }
   }
 
-  // 4. ANTENNES 4G/5G ANFR (180m)
+  // 4. ANTENNES ANFR
   async function loadAntennes(lat, lon, signal) {
     const el = document.getElementById("slot-lot2-antennes");
     if (!el) return;
@@ -218,7 +225,7 @@
       const data = await fetchJsonSafe(`https://data.opendatasoft.com/api/explore/v2.1/catalog/datasets/onde-anfr-supports-antennes@public/records?where=${where}&limit=8`, 3500, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
-        el.innerHTML = `<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">📡 Antennes 4G/5G (180m)</span><span class="text-[10px] font-mono text-emerald-400">Aucune à proximité</span></div>`;
+        el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">📡 Antennes 4G/5G (180m)</span><span class="text-[10px] font-mono text-emerald-400">Aucune à proximité</span></div>';
         return;
       }
       const ops = [...new Set(rows.map(r => r.nom_op || r.operateur).filter(Boolean))];
@@ -231,11 +238,11 @@
       `;
     } catch (e) {
       if (signal.aborted) return;
-      el.innerHTML = `<div class="text-xs text-slate-400">📡 Antennes ANFR : Non disponible.</div>`;
+      el.innerHTML = '<div class="text-xs text-slate-400">📡 Antennes ANFR : Non disponible.</div>';
     }
   }
 
-  // 5. FRANCE CHALEUR URBAINE (Onglet 3. DPE)
+  // 5. CHALEUR URBAINE
   async function loadChaleurUrbaine(lat, lon, signal) {
     const el = document.getElementById("slot-lot1-fcu");
     if (!el) return;
@@ -252,16 +259,16 @@
       `;
     } catch (e) {
       if (signal.aborted) return;
-      el.innerHTML = `<div class="text-xs text-slate-400">🔥 Réseau de chaleur : Vérification indisponible.</div>`;
+      el.innerHTML = '<div class="text-xs text-slate-400">🔥 Réseau de chaleur : Vérification indisponible.</div>';
     }
   }
 
-  // 6. PARC LOCATIF SOCIAL (Onglet 1. Marché)
+  // 6. RPLS
   async function loadRPLS(lat, lon, isParis, signal) {
     const el = document.getElementById("slot-lot3-rpls");
     if (!el) return;
     if (!isParis) {
-      el.innerHTML = `<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏢 Parc Locatif Social (RPLS)</span><span class="text-[10px] font-mono text-slate-400">Détail bailleurs sur Paris (75)</span></div>`;
+      el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏢 Parc Locatif Social (RPLS)</span><span class="text-[10px] font-mono text-slate-400">Détail bailleurs sur Paris (75)</span></div>';
       return;
     }
     try {
@@ -269,7 +276,7 @@
       const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/logements-sociaux-finances-a-paris/records?where=${where}&limit=3`, 3500, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
-        el.innerHTML = `<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏢 Parc Social (75m)</span><span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">100% Parc Privé</span></div>`;
+        el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏢 Parc Social (75m)</span><span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">100% Parc Privé</span></div>';
         return;
       }
       el.innerHTML = `
@@ -286,9 +293,8 @@
     }
   }
 
-  // 7. VÉLIB', COLLÈGES IPS, ÎLOTS DE FRAÎCHEUR & CHANTIERS (Onglet 4. Rue)
+  // 7. EXTRAS ENV
   async function loadEnvExtras(lat, lon, isParis, signal) {
-    // Vélib'
     const elVelib = document.getElementById("slot-lot3-velib");
     if (elVelib) {
       try {
@@ -296,7 +302,7 @@
         const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?where=${where}&limit=3`, 3500, signal);
         const rows = (data && data.results) ? data.results : [];
         elVelib.innerHTML = rows.length === 0
-          ? `<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Vélib' Métropole (250m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 250m</span></div>`
+          ? '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Vélib\' Métropole (250m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 250m</span></div>'
           : `
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-white">🚲 Stations Vélib' Temps Réel (250m)</span>
@@ -314,7 +320,6 @@
       } catch (_) {}
     }
 
-    // Collèges & IPS
     const elEcoles = document.getElementById("slot-lot1-ecoles");
     if (elEcoles) {
       try {
@@ -347,12 +352,11 @@
             </div>
           `;
         } else {
-          elEcoles.innerHTML = `<div class="text-xs text-slate-400">🎓 Collèges : Aucun établissement à moins de 950 m.</div>`;
+          elEcoles.innerHTML = '<div class="text-xs text-slate-400">🎓 Collèges : Aucun établissement à moins de 950 m.</div>';
         }
       } catch (_) {}
     }
 
-    // Îlots de fraîcheur & Chantiers (Paris)
     const elFraicheur = document.getElementById("slot-lot2-fraicheur");
     const elChantiers = document.getElementById("slot-lot1-chantiers");
     if (isParis) {
@@ -421,7 +425,6 @@
     loadEnvExtras(lat, lon, isParis, sig);
   }
 
-  // Surveillance continue toutes les 900ms : garantie à 100%
   setInterval(checkAndRun, 900);
   setTimeout(checkAndRun, 300);
 })();
