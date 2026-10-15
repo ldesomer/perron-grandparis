@@ -1,6 +1,5 @@
 [[redirects]]
   from = "/api-dvf/*"
-  to = "https://files.data.gouv.fr/geo-dvf/:splat"
+  to = "https://geo-dvf.s3.sbg.io.cloud.ovh.net/:splat"
   status = 200
   force = true
-  proxy = true
