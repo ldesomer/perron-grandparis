@@ -3,3 +3,4 @@
   to = "https://files.data.gouv.fr/geo-dvf/:splat"
   status = 200
   force = true
+  proxy = true
