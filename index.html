@@ -1436,7 +1436,7 @@
         const csvYears = ["2026", "2025"];
         const csvPromises = csvYears.map(async (yr) => {
           try {
-            const url = `https://files.data.gouv.fr/geo-dvf/latest/csv/${yr}/communes/${dept}/${codeInsee}.csv`;
+            const url = `/api-dvf/latest/csv/${yr}/communes/${dept}/${codeInsee}.csv`;
             const res = await fetchWithTimeout(url, 8000);
             if (res.ok) {
               const text = await res.text();
@@ -2060,8 +2060,6 @@
       document.getElementById("close-architecture-modal").addEventListener("click", () => archModal.classList.add("hidden"));
     })();
   </script>
-  <script type="module" src="./plugins/lot1-enrichment.js"></script>
-  <script type="module" src="./plugins/lot2-environment.js"></script>
-  <script type="module" src="./plugins/lot3-vitality.js"></script>
+  <script src="./plugins/perron-enrichments.js" defer></script>
 </body>
 </html>
