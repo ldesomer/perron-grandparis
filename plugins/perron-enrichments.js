@@ -131,7 +131,7 @@
           if (naf.startsWith(k)) { label = v; warnCount++; break; }
         }
         const etab = (ent.matching_etablissements && ent.matching_etablissements[0]) || ent.siege || {};
-        const addr = etab.libelle_voie ? `${etab.numero_voie || ""} ${etab.type_voie || ""} ${etab.libelle_voie}`.trim() : "";
+        const addr = etab.libelle_voie ? (etab.numero_voie || "") + " " + (etab.type_voie || "") + " " + etab.libelle_voie : "";
         items.push({ name: ent.nom_complet || "Commerce", naf, label, addr });
       }
 
@@ -186,8 +186,8 @@
       return;
     }
     try {
-      const where = encodeURIComponent(`within_distance(geo_point_2d, geom'POINT(${lon} ${lat})', 120m)`);
-      const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/autorisations-d-urbanisme-hors-permis-de-demolir/records?where=${where}&order_by=date_depot%20DESC&limit=3`, 3500, signal);
+      const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 120m)");
+      const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/autorisations-d-urbanisme-hors-permis-de-demolir/records?where=" + where + "&order_by=date_depot%20DESC&limit=3", 3500, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
         el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span><span class="text-[10px] font-mono text-emerald-400">Aucun dossier récent</span></div>';
@@ -221,8 +221,8 @@
     const el = document.getElementById("slot-lot2-antennes");
     if (!el) return;
     try {
-      const where = encodeURIComponent(`within_distance(coordonnees, geom'POINT(${lon} ${lat})', 180m)`);
-      const data = await fetchJsonSafe(`https://data.opendatasoft.com/api/explore/v2.1/catalog/datasets/onde-anfr-supports-antennes@public/records?where=${where}&limit=8`, 3500, signal);
+      const where = encodeURIComponent("within_distance(coordonnees, geom'POINT(" + lon + " " + lat + ")', 180m)");
+      const data = await fetchJsonSafe("https://data.opendatasoft.com/api/explore/v2.1/catalog/datasets/onde-anfr-supports-antennes@public/records?where=" + where + "&limit=8", 3500, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
         el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">📡 Antennes 4G/5G (180m)</span><span class="text-[10px] font-mono text-emerald-400">Aucune à proximité</span></div>';
@@ -247,7 +247,7 @@
     const el = document.getElementById("slot-lot1-fcu");
     if (!el) return;
     try {
-      const data = await fetchJsonSafe(`https://france-chaleur-urbaine.beta.gouv.fr/api/v1/eligibility?lat=${lat}&lon=${lon}`, 3500, signal);
+      const data = await fetchJsonSafe("https://france-chaleur-urbaine.beta.gouv.fr/api/v1/eligibility?lat=" + lat + "&lon=" + lon, 3500, signal);
       const dist = (data && typeof data.distance === "number") ? Math.round(data.distance) : null;
       const ok = Boolean(data && (data.isEligible || (dist !== null && dist <= 150)));
       el.innerHTML = `
@@ -272,8 +272,8 @@
       return;
     }
     try {
-      const where = encodeURIComponent(`within_distance(geo_point_2d, geom'POINT(${lon} ${lat})', 75m)`);
-      const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/logements-sociaux-finances-a-paris/records?where=${where}&limit=3`, 3500, signal);
+      const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 75m)");
+      const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/logements-sociaux-finances-a-paris/records?where=" + where + "&limit=3", 3500, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
         el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏢 Parc Social (75m)</span><span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">100% Parc Privé</span></div>';
@@ -298,8 +298,8 @@
     const elVelib = document.getElementById("slot-lot3-velib");
     if (elVelib) {
       try {
-        const where = encodeURIComponent(`within_distance(coordonnees_geo, geom'POINT(${lon} ${lat})', 250m)`);
-        const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?where=${where}&limit=3`, 3500, signal);
+        const where = encodeURIComponent("within_distance(coordonnees_geo, geom'POINT(" + lon + " " + lat + ")', 250m)");
+        const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?where=" + where + "&limit=3", 3500, signal);
         const rows = (data && data.results) ? data.results : [];
         elVelib.innerHTML = rows.length === 0
           ? '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🚲 Vélib\' Métropole (250m)</span><span class="text-[10px] font-mono text-slate-400">Aucune station < 250m</span></div>'
@@ -323,14 +323,14 @@
     const elEcoles = document.getElementById("slot-lot1-ecoles");
     if (elEcoles) {
       try {
-        const where = encodeURIComponent(`within_distance(position, geom'POINT(${lon} ${lat})', 950m) AND type_etablissement="Collège"`);
-        const data = await fetchJsonSafe(`https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=${where}&limit=3`, 3500, signal);
+        const where = encodeURIComponent("within_distance(position, geom'POINT(" + lon + " " + lat + ")', 950m) AND type_etablissement=\"Collège\"");
+        const data = await fetchJsonSafe("https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=" + where + "&limit=3", 3500, signal);
         const schools = (data && data.results) ? data.results : [];
         if (schools.length > 0) {
-          const uais = schools.map(s => `"${s.identifiant_de_l_etablissement}"`).join(",");
+          const uais = schools.map(s => '"' + s.identifiant_de_l_etablissement + '"').join(",");
           let ipsMap = {};
           try {
-            const ipsData = await fetchJsonSafe(`https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-colleges-ap2022/records?where=${encodeURIComponent(`uai IN (${uais})`)}&order_by=rentree_scolaire%20DESC&limit=8`, 2800, signal);
+            const ipsData = await fetchJsonSafe("https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-ips-colleges-ap2022/records?where=" + encodeURIComponent("uai IN (" + uais + ")") + "&order_by=rentree_scolaire%20DESC&limit=8", 2800, signal);
             (ipsData.results || []).forEach(r => { if (r.uai && !ipsMap[r.uai]) ipsMap[r.uai] = Math.round(Number(r.ips)); });
           } catch (_) {}
 
@@ -362,8 +362,8 @@
     if (isParis) {
       if (elFraicheur) {
         try {
-          const where = encodeURIComponent(`within_distance(geo_point_2d, geom'POINT(${lon} ${lat})', 300m)`);
-          const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/ilots-de-fraicheur-espaces-verts-frais/records?where=${where}&limit=3`, 3500, signal);
+          const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 300m)");
+          const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/ilots-de-fraicheur-espaces-verts-frais/records?where=" + where + "&limit=3", 3500, signal);
           const rows = (data && data.results) ? data.results : [];
           elFraicheur.innerHTML = `
             <div class="flex items-center justify-between">
@@ -375,8 +375,8 @@
       }
       if (elChantiers) {
         try {
-          const where = encodeURIComponent(`within_distance(geo_point_2d, geom'POINT(${lon} ${lat})', 200m)`);
-          const data = await fetchJsonSafe(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/chantiers-perturbants/records?where=${where}&limit=3`, 3500, signal);
+          const where = encodeURIComponent("within_distance(geo_point_2d, geom'POINT(" + lon + " " + lat + ")', 200m)");
+          const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/chantiers-perturbants/records?where=" + where + "&limit=3", 3500, signal);
           const rows = (data && data.results) ? data.results : [];
           elChantiers.innerHTML = `
             <div class="flex items-center justify-between">
@@ -405,7 +405,7 @@
     const lon = parseFloat(lonStr);
     if (isNaN(lat) || isNaN(lon)) return;
 
-    const key = `${lat.toFixed(5)}_${lon.toFixed(5)}`;
+    const key = lat.toFixed(5) + "_" + lon.toFixed(5);
     if (key === lastCoordKey) return;
     lastCoordKey = key;
 
