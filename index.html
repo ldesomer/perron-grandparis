@@ -220,7 +220,7 @@
       </button>
 
       <!-- Carte complète du Classement -->
-      <div id="choropleth-full-card" class="bg-slate-950/92 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-3 shadow-2xl flex flex-col min-h-0 max-h-full overflow-hidden">
+      <div id="choropleth-full-card" class="bg-slate-950/95 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-3 shadow-2xl flex flex-col min-h-0 max-h-full overflow-hidden">
         <div class="flex items-center justify-between gap-2 mb-2 shrink-0">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -311,7 +311,7 @@
     <!-- 2. BARRE BASSE : CONTRÔLE DES CALQUES + BOUTONS ZOOM (+/-) CÔTE À CÔTE -->
     <div class="pointer-events-auto shrink-0 flex items-end gap-2">
       <!-- Tiroir Calques & Fond de carte -->
-      <div class="bg-slate-950/92 backdrop-blur-xl border border-slate-800 rounded-2xl p-2.5 shadow-2xl w-64">
+      <div class="bg-slate-950/95 backdrop-blur-xl border border-slate-800 rounded-2xl p-2.5 shadow-2xl w-64">
         <button id="btn-toggle-layers-drawer" class="w-full flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-slate-300 hover:text-white">
           <span class="flex items-center gap-1.5">
             <span>🗺️ Calques & Fond de carte</span>
@@ -370,7 +370,7 @@
       </div>
 
       <!-- Boutons de Zoom +/- dédiés (Placés à droite du tiroir pour ne jamais se superposer) -->
-      <div class="flex flex-col bg-slate-950/92 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+      <div class="flex flex-col bg-slate-950/95 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
         <button id="btn-zoom-in" title="Zoomer" class="w-9 h-9 flex items-center justify-center text-slate-200 hover:text-amber-300 hover:bg-slate-900 font-mono text-base font-bold border-b border-slate-800 transition-colors">+</button>
         <button id="btn-zoom-out" title="Dézoomer" class="w-9 h-9 flex items-center justify-center text-slate-200 hover:text-amber-300 hover:bg-slate-900 font-mono text-base font-bold transition-colors">−</button>
       </div>
@@ -789,7 +789,8 @@
         zoomControl: false,
         attributionControl: true
       });
-
+      window.perronMap = map;
+      
       const mapContainerEl = document.getElementById("map");
       if (window.ResizeObserver && mapContainerEl) {
         new ResizeObserver(() => map.invalidateSize()).observe(mapContainerEl);
