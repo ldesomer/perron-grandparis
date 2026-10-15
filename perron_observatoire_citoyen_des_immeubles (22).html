@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PERRON — L'Observatoire Citoyen des Immeubles (Paris & Petite Couronne)</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #090d16;
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #map {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      background-color: #0b1320;
+    }
+
+    .plaque-paris {
+      background: linear-gradient(145deg, #0d2b52 0%, #071930 100%);
+      border: 2px solid #e2e8f0;
+      box-shadow: 0 0 0 3px #0d2b52, 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.8);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: rgba(15, 23, 42, 0.96) !important;
+      color: #f8fafc !important;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      border-radius: 12px !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8) !important;
+      font-family: 'Inter', sans-serif;
+    }
+    .leaflet-popup-tip {
+      background: rgba(15, 23, 42, 0.96) !important;
+    }
+    .leaflet-container {
+      font-family: 'Inter', sans-serif;
+      cursor: crosshair !important;
+      background: #0b1320 !important;
+    }
+    .leaflet-control-zoom {
+      border: 1px solid rgba(148, 163, 184, 0.3) !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important;
+    }
+    .leaflet-control-zoom a {
+      background-color: rgba(15, 23, 42, 0.92) !important;
+      color: #f8fafc !important;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+    }
+    .leaflet-control-zoom a:hover {
+      background-color: rgba(30, 41, 59, 0.98) !important;
+      color: #fbbf24 !important;
+    }
+
+    .dpe-A { background-color: #009c6d; color: white; }
+    .dpe-B { background-color: #52b153; color: white; }
+    .dpe-C { background-color: #78bd76; color: #0f172a; }
+    .dpe-D { background-color: #f4e700; color: #0f172a; }
+    .dpe-E { background-color: #f0b50f; color: #0f172a; }
+    .dpe-F { background-color: #eb8235; color: white; }
+    .dpe-G { background-color: #d7221f; color: white; }
+
+    .clean-dark-labels {
+      filter: contrast(1.08) brightness(0.95);
+      pointer-events: none;
+    }
+
+    .zone-tooltip {
+      background: rgba(15, 23, 42, 0.96) !important;
+      border: 1px solid rgba(251, 191, 36, 0.5) !important;
+      border-radius: 10px !important;
+      color: #f8fafc !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.85) !important;
+      padding: 8px 10px !important;
+      font-family: 'Inter', sans-serif !important;
+    }
+  </style>
+</head>
+<body class="relative select-none">
+
+  <!-- CARTE PLEIN ÉCRAN -->
+  <div id="map"></div>
+
+  <!-- HEADER -->
+  <header class="fixed top-3 left-3 right-3 z-20 pointer-events-none flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pointer-events-auto w-full lg:w-auto">
+      <div class="plaque-paris rounded-lg px-3.5 py-2 flex items-center justify-between sm:justify-start gap-3 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded bg-amber-400/20 border border-amber-400/60 flex items-center justify-center text-amber-300 font-display font-bold text-lg">
+            P
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-display font-bold tracking-wider text-white text-base leading-none">PERRON</span>
+              <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">Grand Paris</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-tight mt-0.5">Cadastre • DVF • Loyers • RNIC • DPE • Rue</p>
+          </div>
+        </div>
+        <button id="btn-architecture-modal" class="sm:hidden text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded border border-slate-600">
+          Sources
+        </button>
+      </div>
+
+      <div class="relative flex-1 sm:w-80 md:w-96">
+        <div class="flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 focus-within:border-amber-400 rounded-xl shadow-2xl overflow-hidden transition-colors">
+          <span class="pl-3.5 pr-2 text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </span>
+          <input
+            id="address-search"
+            type="text"
+            placeholder="Chercher une adresse (75, 92, 93, 94)..."
+            autocomplete="off"
+            class="w-full bg-transparent py-2.5 pr-3 text-sm text-white placeholder-slate-400 focus:outline-none select-text"
+          />
+          <button id="clear-search" class="hidden pr-3 text-slate-400 hover:text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="search-results" class="hidden absolute left-0 right-0 mt-1.5 bg-slate-900/98 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 divide-y divide-slate-800/80 max-h-72 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 pointer-events-auto">
+      <div class="flex items-center bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 gap-1 shadow-xl shrink-0">
+        <span class="text-[11px] font-mono text-slate-400 px-2 hidden xl:inline">Explorer :</span>
+        <button data-jump="2.327374,48.86655,17,75 — Place Vendôme / St-Honoré" class="jump-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition">
+          75 Vendôme
+        </button>
+        <button data-jump="2.3588,48.8566,17,75 — Le Marais (4e)" class="jump-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition">
+          75 Marais
+        </button>
+        <button data-jump="2.2856,48.9106,17,92 — Asnières-sur-Seine" class="jump-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-sky-300 bg-sky-500/10 border border-sky-500/30 hover:bg-sky-500/20 transition">
+          92 Asnières
+        </button>
+        <button data-jump="2.3338,48.9119,17,93 — Saint-Ouen (Garibaldi)" class="jump-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition">
+          93 Saint-Ouen
+        </button>
+        <button data-jump="2.4375,48.8473,17,94 — Vincennes" class="jump-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300 bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition">
+          94 Vincennes
+        </button>
+      </div>
+
+      <button id="btn-architecture-desktop" class="hidden sm:flex items-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 backdrop-blur-md border border-slate-700/80 text-slate-200 px-3 py-2 rounded-xl text-xs font-medium shadow-xl shrink-0 transition">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Sources & Méthodologie</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- COLONNE GAUCHE UNIFIÉE (ZÉRO SUPERPOSITION ENTRE CLASSEMENT, CALQUES ET ZOOM +/-) -->
+  <div class="fixed top-20 bottom-3 left-3 z-20 pointer-events-none flex flex-col justify-between gap-2.5 w-[calc(100vw-1.5rem)] sm:w-[390px]">
+
+    <!-- CLASSEMENT CHOROPLÈTHE GAUCHE -->
+    <div id="choropleth-bar" class="pointer-events-auto flex flex-col min-h-0 max-h-full transition-all duration-300">
+      <div id="choropleth-compact-pill" class="hidden">
+        <button id="btn-expand-choropleth" type="button" class="flex items-center gap-2 bg-slate-900/95 hover:bg-slate-800 backdrop-blur-xl border border-amber-500/40 text-white px-3.5 py-2 rounded-xl shadow-2xl text-xs font-medium transition group">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span class="font-display font-bold tracking-wide">🏆 Classement PERRON</span>
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 group-hover:bg-amber-500 group-hover:text-slate-950 transition">
+            38 Territoires
+          </span>
+        </button>
+      </div>
+
+      <div id="choropleth-full-card" class="bg-slate-900/95 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-3 shadow-2xl flex flex-col gap-2 min-h-0 max-h-full overflow-hidden">
+        <div class="flex items-center justify-between gap-2 shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span class="text-xs font-display font-bold uppercase tracking-wider text-white">Classement Territorial PERRON</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button id="btn-toggle-palmares" class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition">
+              🏆 Palmarès
+            </button>
+            <button id="btn-minimize-choropleth" title="Réduire ce panneau" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] shrink-0">
+          <button data-metric="perron" class="metric-btn px-1.5 py-1.5 rounded-lg font-medium bg-amber-500 text-slate-950 font-semibold transition text-center truncate">
+            Indice Global
+          </button>
+          <button data-metric="passoires" class="metric-btn px-1.5 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition text-center truncate">
+            Passoires F/G
+          </button>
+          <button data-metric="dvf" class="metric-btn px-1.5 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition text-center truncate">
+            Prix /m²
+          </button>
+          <button data-metric="loyer" class="metric-btn px-1.5 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition text-center truncate">
+            Loyers DRIHL
+          </button>
+        </div>
+
+        <div class="space-y-1 shrink-0">
+          <div class="flex items-center justify-between text-[10px] font-mono text-slate-300 gap-2">
+            <span id="legend-title" class="truncate">Indice PERRON (Énergie • Marché • Bâti)</span>
+            <span id="legend-scale-type" class="text-amber-300 shrink-0">Grand Paris</span>
+          </div>
+          <div id="legend-gradient-bar" class="h-1.5 w-full rounded-full flex overflow-hidden border border-slate-800"></div>
+          <div id="legend-labels" class="flex justify-between text-[10px] font-mono text-slate-400"></div>
+        </div>
+
+        <!-- Encart dynamique de la zone survolée -->
+        <div id="hovered-zone-card" class="bg-slate-950/90 border border-slate-800 rounded-xl p-2 shrink-0 transition-all">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="text-[9px] font-mono uppercase text-amber-400/90 tracking-wider">Territoire sélectionné</div>
+              <div id="hz-name" class="text-xs font-display font-bold text-white truncate">Survolez un arrondissement ou une commune</div>
+            </div>
+            <span id="hz-badge" class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">—</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5 mt-1.5 pt-1.5 border-t border-slate-800/80 text-[10px] font-mono">
+            <div class="bg-slate-900/90 rounded px-1.5 py-1 text-center">
+              <div class="text-slate-400 text-[9px]">Indice</div>
+              <div id="hz-score" class="text-emerald-300 font-bold">—</div>
+            </div>
+            <div class="bg-slate-900/90 rounded px-1.5 py-1 text-center">
+              <div class="text-slate-400 text-[9px]">Passoires</div>
+              <div id="hz-passoires" class="text-rose-300 font-bold">—</div>
+            </div>
+            <div class="bg-slate-900/90 rounded px-1.5 py-1 text-center">
+              <div class="text-slate-400 text-[9px]">Prix Médian</div>
+              <div id="hz-dvf" class="text-amber-300 font-bold">—</div>
+            </div>
+            <div class="bg-slate-900/90 rounded px-1.5 py-1 text-center">
+              <div class="text-slate-400 text-[9px]">Loyer Réf.</div>
+              <div id="hz-loyer" class="text-sky-300 font-bold">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="palmares-panel" class="pt-1.5 border-t border-slate-800 flex flex-col gap-1.5 min-h-0 flex-1 overflow-hidden">
+          <div class="flex items-center justify-between gap-1 shrink-0">
+            <span class="text-[10px] font-mono text-slate-400 uppercase font-semibold">Arrondissements & Communes</span>
+            <div class="flex items-center gap-1 text-[10px] font-mono">
+              <button type="button" data-dept-filter="ALL" class="dept-filter-btn px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-bold transition">Tous</button>
+              <button type="button" data-dept-filter="75" class="dept-filter-btn px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white transition">75</button>
+              <button type="button" data-dept-filter="92" class="dept-filter-btn px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white transition">92</button>
+              <button type="button" data-dept-filter="93" class="dept-filter-btn px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white transition">93</button>
+              <button type="button" data-dept-filter="94" class="dept-filter-btn px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white transition">94</button>
+            </div>
+          </div>
+          <div id="palmares-list" class="overflow-y-auto space-y-1 pr-1 min-h-0 flex-1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALQUES CARTOGRAPHIQUES & CONTRÔLE DE ZOOM INTÉGRÉ (SANS CHEVAUCHEMENT) -->
+    <div class="pointer-events-auto shrink-0 flex items-end gap-2">
+      <div class="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl p-2.5 shadow-2xl flex flex-col gap-2 w-72">
+        <div class="flex items-center justify-between">
+          <button id="btn-toggle-layers-body" type="button" class="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-200 hover:text-amber-300 font-semibold transition">
+            <span>🗺️ Calques & Fond de carte</span>
+            <svg id="layers-chevron" class="w-3.5 h-3.5 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <span id="zoom-indicator" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">Zoom 12</span>
+        </div>
+
+        <div id="layers-panel-body" class="space-y-2 border-t border-slate-800 pt-2">
+          <div class="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <button id="btn-style-ortho" class="px-2 py-1 rounded text-xs font-medium bg-amber-500 text-slate-950 font-semibold transition">
+              Vue Aérienne IGN
+            </button>
+            <button id="btn-style-dark" class="px-2 py-1 rounded text-xs font-medium text-slate-300 hover:text-white transition">
+              Plan Urbain
+            </button>
+          </div>
+
+          <div class="space-y-1 text-xs">
+            <label class="flex items-center justify-between cursor-pointer hover:bg-slate-800/50 px-1.5 py-1 rounded">
+              <span class="flex items-center gap-2 text-slate-200">
+                <span class="w-2.5 h-2.5 rounded-sm bg-emerald-400/40 border border-emerald-400 inline-block"></span>
+                Zones du Classement
+              </span>
+              <input type="checkbox" id="toggle-zones" checked class="accent-emerald-400 rounded cursor-pointer" />
+            </label>
+
+            <label class="flex items-center justify-between cursor-pointer hover:bg-slate-800/50 px-1.5 py-1 rounded">
+              <span class="flex items-center gap-2 text-slate-200">
+                <span class="w-2.5 h-2.5 rounded-sm bg-amber-400/30 border border-amber-400 inline-block"></span>
+                Parcelles cadastrales
+              </span>
+              <input type="checkbox" id="toggle-parcelles" checked class="accent-amber-400 rounded cursor-pointer" />
+            </label>
+
+            <label class="flex items-center justify-between cursor-pointer hover:bg-slate-800/50 px-1.5 py-1 rounded">
+              <span class="flex items-center gap-2 text-slate-200">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white inline-block"></span>
+                Diagnostics DPE (ADEME)
+              </span>
+              <input type="checkbox" id="toggle-batiments" checked class="accent-emerald-400 rounded cursor-pointer" />
+            </label>
+
+            <label class="flex items-center justify-between cursor-pointer hover:bg-slate-800/50 px-1.5 py-1 rounded">
+              <span class="flex items-center gap-2 text-slate-200">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 border border-white inline-block"></span>
+                Anomalies de voirie (75)
+              </span>
+              <input type="checkbox" id="toggle-dansmarue" checked class="accent-rose-500 rounded cursor-pointer" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boutons + / - dédiés à droite du panneau des calques -->
+      <div class="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl overflow-hidden shadow-2xl flex flex-col divide-y divide-slate-800 shrink-0">
+        <button id="btn-zoom-in" type="button" title="Zoomer (+)" class="w-9 h-9 flex items-center justify-center text-slate-200 hover:text-amber-300 hover:bg-slate-800 font-mono text-base font-bold transition">
+          +
+        </button>
+        <button id="btn-zoom-out" type="button" title="Dézoomer (-)" class="w-9 h-9 flex items-center justify-center text-slate-200 hover:text-amber-300 hover:bg-slate-800 font-mono text-base font-bold transition">
+          −
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PANNEAU INSPECTEUR (DROITE) -->
+  <aside id="inspector-drawer" class="fixed top-16 sm:top-16 bottom-3 right-3 z-20 w-[calc(100vw-1.5rem)] sm:w-[460px] md:w-[500px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 translate-x-0">
+    <div class="p-4 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-b border-slate-800 shrink-0">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+            <span id="badge-dept" class="text-[11px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">75 PARIS</span>
+            <span id="badge-parcelle" class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40">Parcelle...</span>
+            <span id="badge-surface" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">— m²</span>
+          </div>
+
+          <h1 id="dossier-address" class="font-display font-bold text-lg sm:text-xl text-white leading-tight truncate select-text">Chargement de la parcelle...</h1>
+          <p id="dossier-commune" class="text-xs text-slate-400 mt-0.5 select-text">Sélectionnez une parcelle sur la carte</p>
+        </div>
+
+        <div class="flex flex-col items-end shrink-0">
+          <div id="score-pill" class="px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-right">
+            <div class="flex items-baseline justify-end gap-1">
+              <span id="score-value" class="font-display font-bold text-xl text-emerald-300">—</span>
+              <span class="text-[11px] font-mono text-emerald-400/80">/100</span>
+            </div>
+            <div id="score-label" class="text-[10px] font-mono uppercase tracking-wider text-emerald-200">Indice Réel</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 text-[11px]">
+        <div class="flex items-center gap-2 overflow-x-auto">
+          <span id="status-ban" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>BAN</span>
+          <span id="status-ademe" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ADEME</span>
+          <span id="status-dmr" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>DansMaRue</span>
+        </div>
+
+        <button id="btn-export-json" class="text-xs font-mono text-slate-300 hover:text-amber-300 flex items-center gap-1 shrink-0 transition" title="Télécharger la fiche JSON">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Export JSON
+        </button>
+      </div>
+
+      <div class="grid grid-cols-4 gap-1 mt-3 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-medium">
+        <a href="#sec-marche" class="text-center py-1.5 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 transition">1. Marché</a>
+        <a href="#sec-copro" class="text-center py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">2. Immeuble</a>
+        <a href="#sec-dpe" class="text-center py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">3. DPE</a>
+        <a href="#sec-rue" class="text-center py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">4. Rue (85m)</a>
+      </div>
+    </div>
+
+    <div id="dossier-scroll" class="flex-1 overflow-y-auto p-4 space-y-5 select-text scroll-smooth">
+
+      <!-- PILIER 1 -->
+      <section id="sec-marche" class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold flex items-center justify-center">1</span>
+            <div>
+              <h2 class="text-sm font-display font-bold text-white uppercase tracking-wide">Marché & Loyers</h2>
+              <p class="text-[11px] text-slate-400">Mutations DVF Certifiées & Encadrement DRIHL</p>
+            </div>
+          </div>
+          <span id="dvf-trend-badge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">DVF Live</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3">
+            <div class="text-[11px] text-slate-400 flex items-center justify-between">
+              <span>Prix moyen DVF</span>
+              <span class="font-mono text-[10px] text-slate-500">Actes notariés</span>
+            </div>
+            <div id="dvf-avg-price" class="font-display font-bold text-xl text-white mt-1">—</div>
+            <div id="dvf-range" class="text-[11px] font-mono text-slate-400 mt-1">Chargement DVF...</div>
+          </div>
+
+          <div class="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3">
+            <div class="text-[11px] text-slate-400 flex items-center justify-between">
+              <span>Plafond Loyer Majoré</span>
+              <span id="loyer-status-tag" class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">DRIHL</span>
+            </div>
+            <div id="loyer-majore" class="font-display font-bold text-xl text-amber-300 mt-1">—</div>
+            <div id="loyer-ref-detail" class="text-[11px] font-mono text-slate-400 mt-1">—</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3">
+          <div class="flex items-center justify-between text-xs mb-2">
+            <span class="text-slate-300 font-medium">Simulateur Loyer Max Autorisé (Hors charges)</span>
+            <span class="font-mono text-amber-300 font-semibold"><span id="sim-surface-val">45</span> m²</span>
+          </div>
+          <input id="sim-surface-slider" type="range" min="15" max="140" value="45" class="w-full accent-amber-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg" />
+          <div class="flex items-center justify-between text-xs mt-2 pt-2 border-t border-slate-800/80">
+            <span class="text-slate-400">Loyer de base réf. : <strong id="sim-loyer-base" class="text-slate-200 font-mono">—</strong></span>
+            <span class="text-slate-300">Plafond majoré : <strong id="sim-loyer-max" class="text-emerald-300 font-mono text-sm">—</strong></span>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <span class="text-xs font-semibold text-slate-200">Dernières ventes notariées (DVF)</span>
+            <span id="dvf-s1-2026-pill" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0">Millésime 2025</span>
+          </div>
+          <p id="dvf-count-label" class="text-[11px] text-slate-400 mb-2">Recherche des transactions à proximité...</p>
+          <div class="overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60">
+            <table class="w-full table-fixed text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-900 text-slate-400 font-mono text-[10px] uppercase border-b border-slate-800">
+                  <th class="w-[74px] py-2 px-2">Date</th>
+                  <th class="py-2 px-2">Bien & Localisation</th>
+                  <th class="w-[56px] py-2 px-1.5 text-right">Surf.</th>
+                  <th class="w-[108px] py-2 px-2.5 text-right">Prix & €/m²</th>
+                </tr>
+              </thead>
+              <tbody id="dvf-table-body" class="divide-y divide-slate-800/70 font-mono text-[11px]"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- PILIER 2 -->
+      <section id="sec-copro" class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono text-xs font-bold flex items-center justify-center">2</span>
+            <div>
+              <h2 class="text-sm font-display font-bold text-white uppercase tracking-wide">Vie de l'Immeuble & Copro</h2>
+              <p class="text-[11px] text-slate-400">Registre National des Copropriétés (RNIC) & Bâti</p>
+            </div>
+          </div>
+          <span id="rnic-immat" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700">RNIC</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Lots / DPE</div>
+            <div id="copro-lots" class="font-display font-bold text-sm text-white mt-0.5">—</div>
+            <div id="copro-lots-hab" class="text-[10px] text-slate-400">—</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Statut</div>
+            <div id="copro-syndic" class="font-display font-bold text-sm text-sky-300 mt-1">—</div>
+            <div id="copro-mandat" class="text-[10px] text-slate-400">—</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Période Bâti</div>
+            <div id="copro-periode" class="font-display font-bold text-sm text-white mt-1">—</div>
+            <div id="copro-style" class="text-[10px] text-slate-400">—</div>
+          </div>
+        </div>
+
+        <div id="apur-alert-box" class="flex items-start gap-2.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs">
+          <span id="apur-icon" class="text-emerald-400 mt-0.5">●</span>
+          <div>
+            <div id="apur-title" class="font-semibold text-emerald-200">Vérification des procédures publiques</div>
+            <p id="apur-desc" class="text-[11px] text-slate-300 mt-0.5">Croisement des bases ouvertes RNIC / ADEME.</p>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>💬 Cahier de Perron (Contributions vérifiées uniquement)</span>
+            </span>
+            <button id="btn-toggle-review-form" class="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition">+ Déposer une note</button>
+          </div>
+
+          <form id="review-form" class="hidden bg-slate-900 border border-slate-700 rounded-lg p-3 space-y-2.5 text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <select id="review-role" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white focus:outline-none focus:border-amber-400">
+                <option value="Locataire actuel">Locataire actuel</option>
+                <option value="Ancien locataire">Ancien locataire</option>
+                <option value="Copropriétaire">Copropriétaire</option>
+                <option value="Voisin de rue">Voisin de rue</option>
+              </select>
+              <select id="review-tag" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white focus:outline-none focus:border-amber-400">
+                <option value="Calme & Entretien OK">✅ Calme & Entretien OK</option>
+                <option value="Isolation phonique faible">🔊 Isolation phonique faible</option>
+                <option value="Charges / Chauffage élevé">🔥 Charges / Chauffage élevé</option>
+                <option value="Humidité / Parties communes">💧 Humidité / Parties communes</option>
+              </select>
+            </div>
+            <textarea id="review-text" rows="2" required placeholder="Partagez une observation réelle sur cet immeuble..." class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"></textarea>
+            <div class="flex justify-end gap-2">
+              <button type="button" id="btn-cancel-review" class="px-2.5 py-1 rounded text-slate-400 hover:text-white">Annuler</button>
+              <button type="submit" class="px-3 py-1 rounded bg-amber-500 text-slate-950 font-semibold hover:bg-amber-400">Publier</button>
+            </div>
+          </form>
+
+          <div id="reviews-list" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- PILIER 3 -->
+      <section id="sec-dpe" class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold flex items-center justify-center">3</span>
+            <div>
+              <h2 class="text-sm font-display font-bold text-white uppercase tracking-wide">Performance Énergétique (DPE)</h2>
+              <p class="text-[11px] text-slate-400">Diagnostics immobiliers recensés par l'ADEME</p>
+            </div>
+          </div>
+          <span id="dpe-passoire-badge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">—</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-[11px] text-slate-400">
+            <span>Répartition des étiquettes énergétiques</span>
+            <span id="dpe-median-label" class="font-mono text-white">Étiquette médiane : <strong>—</strong></span>
+          </div>
+          <div id="dpe-distribution-bar" class="h-6 w-full rounded-lg overflow-hidden flex font-mono text-[11px] font-bold shadow-inner"></div>
+          <div class="flex justify-between text-[10px] font-mono text-slate-400 px-1">
+            <span>A/B (Sobre)</span>
+            <span>C/D/E (Standard)</span>
+            <span class="text-rose-400">F/G (Passoires thermiques)</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-semibold text-slate-300">Diagnostics enregistrés (Du plus récent au plus ancien)</span>
+            <span id="dpe-source-indicator" class="text-[10px] font-mono text-emerald-400">Base ADEME</span>
+          </div>
+          <div id="dpe-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+      </section>
+
+      <!-- PILIER 4 -->
+      <section id="sec-rue" class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono text-xs font-bold flex items-center justify-center">4</span>
+            <div>
+              <h2 class="text-sm font-display font-bold text-white uppercase tracking-wide">Environnement & Voirie (85m)</h2>
+              <p class="text-[11px] text-slate-400">Anomalies signalées sur l'espace public proche</p>
+            </div>
+          </div>
+          <span id="dmr-count-badge" class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">—</span>
+        </div>
+
+        <div id="dmr-categories-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-semibold text-slate-300">Signalements géolocalisés (Cliquez pour localiser)</span>
+            <span class="text-[10px] font-mono text-slate-400">Open Data Paris</span>
+          </div>
+          <div id="dmr-list" class="space-y-1.5 max-h-52 overflow-y-auto pr-1"></div>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- MODALE SOURCES & MÉTHODOLOGIE -->
+  <div id="architecture-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <div class="flex items-center gap-2.5">
+          <span class="px-2 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-xs font-bold">OPEN DATA PUBLIC</span>
+          <h3 class="font-display font-bold text-white text-base">Sources Officielles & Méthodologie</h3>
+        </div>
+        <button id="close-architecture-modal" class="text-slate-400 hover:text-white p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-300 leading-relaxed select-text">
+        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-100">
+          <strong>Transparence des données :</strong> PERRON agrège en temps réel les bases de données publiques ouvertes de l'État, de l'IGN, de l'ADEME et des collectivités franciliennes pour offrir une lecture citoyenne du parc immobilier.
+        </div>
+        <ul class="space-y-2 list-disc pl-4">
+          <li><strong>Cadastre & Imagerie aérienne :</strong> Flux cartographiques officiels de l'IGN Géoplateforme (Orthophotographies HR et Parcellaire Express PCI Vecteur) couplés à la Base Adresse Nationale (BAN).</li>
+          <li><strong>Transactions immobilières (DVF) :</strong> Demandes de Valeurs Foncières issues des actes notariés publiés par la DGFiP et consolidés par Etalab et le Cerema.</li>
+          <li><strong>Encadrement des loyers :</strong> Barèmes préfectoraux de référence et plafonds majorés publiés par la DRIHL Île-de-France (Paris, Plaine Commune, Est Ensemble).</li>
+          <li><strong>Performance énergétique (DPE) :</strong> Base nationale des Diagnostics de Performance Énergétique des logements existants publiée par l'ADEME.</li>
+          <li><strong>Environnement urbain :</strong> Signalements citoyens d'anomalies sur l'espace public issus du téléservice municipal <em>DansMaRue</em> (Ville de Paris).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 border border-amber-400/60 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+    <span id="toast-message">Opération effectuée</span>
+  </div>
+
+  <script>
+    (function () {
+      const INITIAL_MAP_CENTER = [48.862, 2.338];
+      const INITIAL_ZOOM = 12;
+      const INITIAL_PARCEL_LATLNG = [48.86655, 2.327374];
+      // Seuil strict : 1er janvier 2025 (01/2025 à S1 2026)
+      const MIN_DVF_TIMESTAMP_2025 = Date.UTC(2025, 0, 1);
+
+      const COMMUNES_93_ENCADREES = new Set([
+        "93001", "93031", "93039", "93027", "93059", "93066", "93070", "93072", "93079",
+        "93006", "93008", "93010", "93045", "93048", "93053", "93055", "93061", "93063"
+      ]);
+
+      const BAREME_LOYERS_PARIS_ARR = {
+        1: 31.2, 2: 30.8, 3: 30.5, 4: 30.9, 5: 29.8, 6: 32.1, 7: 31.6,
+        8: 30.4, 9: 28.9, 10: 27.2, 11: 27.4, 12: 25.8, 13: 25.1, 14: 26.6,
+        15: 26.9, 16: 28.8, 17: 27.9, 18: 25.4, 19: 23.6, 20: 24.1
+      };
+
+      const TERRITORIAL_STATS_DB = {
+        "75101": { name: "Paris 1er (Louvre / Vendôme)", short: "Paris 1er", dept: "75", lat: 48.8625, lng: 2.3364, perronScore: 76, passoirePct: 29, dvfMedian: 12900, loyerRef: 31.2, encadre: true },
+        "75102": { name: "Paris 2e (Bourse / Sentier)", short: "Paris 2e", dept: "75", lat: 48.8678, lng: 2.3441, perronScore: 71, passoirePct: 35, dvfMedian: 11600, loyerRef: 30.8, encadre: true },
+        "75103": { name: "Paris 3e (Haut-Marais)", short: "Paris 3e", dept: "75", lat: 48.8630, lng: 2.3600, perronScore: 72, passoirePct: 34, dvfMedian: 12100, loyerRef: 30.5, encadre: true },
+        "75104": { name: "Paris 4e (Marais / Île St-Louis)", short: "Paris 4e", dept: "75", lat: 48.8543, lng: 2.3574, perronScore: 73, passoirePct: 33, dvfMedian: 12650, loyerRef: 30.9, encadre: true },
+        "75105": { name: "Paris 5e (Panthéon / Quartier Latin)", short: "Paris 5e", dept: "75", lat: 48.8448, lng: 2.3507, perronScore: 78, passoirePct: 27, dvfMedian: 11950, loyerRef: 29.8, encadre: true },
+        "75106": { name: "Paris 6e (Odéon / St-Germain)", short: "Paris 6e", dept: "75", lat: 48.8496, lng: 2.3328, perronScore: 80, passoirePct: 26, dvfMedian: 14100, loyerRef: 32.1, encadre: true },
+        "75107": { name: "Paris 7e (Invalides / Gros-Caillou)", short: "Paris 7e", dept: "75", lat: 48.8561, lng: 2.3126, perronScore: 81, passoirePct: 25, dvfMedian: 13500, loyerRef: 31.6, encadre: true },
+        "75108": { name: "Paris 8e (Madeleine / Europe)", short: "Paris 8e", dept: "75", lat: 48.8732, lng: 2.3125, perronScore: 79, passoirePct: 26, dvfMedian: 11800, loyerRef: 30.4, encadre: true },
+        "75109": { name: "Paris 9e (Opéra / St-Georges)", short: "Paris 9e", dept: "75", lat: 48.8770, lng: 2.3379, perronScore: 75, passoirePct: 30, dvfMedian: 10650, loyerRef: 28.9, encadre: true },
+        "75110": { name: "Paris 10e (Canal St-Martin)", short: "Paris 10e", dept: "75", lat: 48.8761, lng: 2.3607, perronScore: 68, passoirePct: 34, dvfMedian: 9550, loyerRef: 27.2, encadre: true },
+        "75111": { name: "Paris 11e (Bastille / Oberkampf)", short: "Paris 11e", dept: "75", lat: 48.8592, lng: 2.3782, perronScore: 70, passoirePct: 33, dvfMedian: 9850, loyerRef: 27.4, encadre: true },
+        "75112": { name: "Paris 12e (Nation / Daumesnil)", short: "Paris 12e", dept: "75", lat: 48.8413, lng: 2.3889, perronScore: 82, passoirePct: 22, dvfMedian: 9200, loyerRef: 25.8, encadre: true },
+        "75113": { name: "Paris 13e (Gobelins / Rive Gauche)", short: "Paris 13e", dept: "75", lat: 48.8286, lng: 2.3622, perronScore: 85, passoirePct: 17, dvfMedian: 8750, loyerRef: 25.1, encadre: true },
+        "75114": { name: "Paris 14e (Montparnasse / Alésia)", short: "Paris 14e", dept: "75", lat: 48.8312, lng: 2.3265, perronScore: 79, passoirePct: 25, dvfMedian: 9600, loyerRef: 26.6, encadre: true },
+        "75115": { name: "Paris 15e (Vaugirard / Commerce)", short: "Paris 15e", dept: "75", lat: 48.8412, lng: 2.2938, perronScore: 83, passoirePct: 21, dvfMedian: 9700, loyerRef: 26.9, encadre: true },
+        "75116": { name: "Paris 16e (Passy / Auteuil)", short: "Paris 16e", dept: "75", lat: 48.8604, lng: 2.2711, perronScore: 77, passoirePct: 27, dvfMedian: 11100, loyerRef: 28.8, encadre: true },
+        "75117": { name: "Paris 17e (Batignolles / Ternes)", short: "Paris 17e", dept: "75", lat: 48.8872, lng: 2.3068, perronScore: 76, passoirePct: 29, dvfMedian: 10200, loyerRef: 27.9, encadre: true },
+        "75118": { name: "Paris 18e (Montmartre / Clignancourt)", short: "Paris 18e", dept: "75", lat: 48.8915, lng: 2.3444, perronScore: 63, passoirePct: 38, dvfMedian: 8850, loyerRef: 25.4, encadre: true },
+        "75119": { name: "Paris 19e (Buttes-Chaumont / Villette)", short: "Paris 19e", dept: "75", lat: 48.8828, lng: 2.3822, perronScore: 74, passoirePct: 24, dvfMedian: 8100, loyerRef: 23.6, encadre: true },
+        "75120": { name: "Paris 20e (Belleville / Gambetta)", short: "Paris 20e", dept: "75", lat: 48.8652, lng: 2.3989, perronScore: 69, passoirePct: 31, dvfMedian: 8350, loyerRef: 24.1, encadre: true },
+        "92004": { name: "Asnières-sur-Seine (92)", short: "Asnières", dept: "92", lat: 48.9106, lng: 2.2856, perronScore: 81, passoirePct: 21, dvfMedian: 6850, loyerRef: null, encadre: false },
+        "92012": { name: "Boulogne-Billancourt (92)", short: "Boulogne", dept: "92", lat: 48.8352, lng: 2.2409, perronScore: 86, passoirePct: 18, dvfMedian: 8450, loyerRef: null, encadre: false },
+        "92024": { name: "Clichy (92)", short: "Clichy", dept: "92", lat: 48.9044, lng: 2.3064, perronScore: 75, passoirePct: 26, dvfMedian: 6700, loyerRef: null, encadre: false },
+        "92026": { name: "Courbevoie (92)", short: "Courbevoie", dept: "92", lat: 48.8973, lng: 2.2531, perronScore: 84, passoirePct: 17, dvfMedian: 7150, loyerRef: null, encadre: false },
+        "92040": { name: "Issy-les-Moulineaux (92)", short: "Issy", dept: "92", lat: 48.8239, lng: 2.2653, perronScore: 88, passoirePct: 14, dvfMedian: 8200, loyerRef: null, encadre: false },
+        "92044": { name: "Levallois-Perret (92)", short: "Levallois", dept: "92", lat: 48.8932, lng: 2.2878, perronScore: 87, passoirePct: 17, dvfMedian: 9100, loyerRef: null, encadre: false },
+        "92049": { name: "Montrouge (92)", short: "Montrouge", dept: "92", lat: 48.8186, lng: 2.3194, perronScore: 82, passoirePct: 20, dvfMedian: 7850, loyerRef: null, encadre: false },
+        "92051": { name: "Neuilly-sur-Seine (92)", short: "Neuilly", dept: "92", lat: 48.8846, lng: 2.2696, perronScore: 89, passoirePct: 16, dvfMedian: 11250, loyerRef: null, encadre: false },
+        "92062": { name: "Puteaux (92)", short: "Puteaux", dept: "92", lat: 48.8842, lng: 2.2389, perronScore: 85, passoirePct: 16, dvfMedian: 7050, loyerRef: null, encadre: false },
+        "92073": { name: "Suresnes (92)", short: "Suresnes", dept: "92", lat: 48.8711, lng: 2.2292, perronScore: 83, passoirePct: 19, dvfMedian: 6950, loyerRef: null, encadre: false },
+        "93001": { name: "Aubervilliers (93)", short: "Aubervilliers", dept: "93", lat: 48.9144, lng: 2.3831, perronScore: 62, passoirePct: 33, dvfMedian: 4450, loyerRef: 18.9, encadre: true },
+        "93048": { name: "Montreuil (93)", short: "Montreuil", dept: "93", lat: 48.8638, lng: 2.4485, perronScore: 74, passoirePct: 24, dvfMedian: 6350, loyerRef: 21.1, encadre: true },
+        "93055": { name: "Pantin (93)", short: "Pantin", dept: "93", lat: 48.8966, lng: 2.4094, perronScore: 75, passoirePct: 23, dvfMedian: 6150, loyerRef: 20.8, encadre: true },
+        "93066": { name: "Saint-Denis (93)", short: "St-Denis", dept: "93", lat: 48.9362, lng: 2.3574, perronScore: 64, passoirePct: 31, dvfMedian: 4350, loyerRef: 18.8, encadre: true },
+        "93070": { name: "Saint-Ouen-sur-Seine (93)", short: "St-Ouen", dept: "93", lat: 48.9119, lng: 2.3338, perronScore: 77, passoirePct: 22, dvfMedian: 6250, loyerRef: 20.4, encadre: true },
+        "94018": { name: "Charenton-le-Pont (94)", short: "Charenton", dept: "94", lat: 48.8219, lng: 2.4125, perronScore: 84, passoirePct: 19, dvfMedian: 8150, loyerRef: null, encadre: false },
+        "94041": { name: "Ivry-sur-Seine (94)", short: "Ivry", dept: "94", lat: 48.8131, lng: 2.3878, perronScore: 73, passoirePct: 23, dvfMedian: 5350, loyerRef: null, encadre: false },
+        "94067": { name: "Saint-Mandé (94)", short: "St-Mandé", dept: "94", lat: 48.8431, lng: 2.4189, perronScore: 86, passoirePct: 18, dvfMedian: 9250, loyerRef: null, encadre: false },
+        "94080": { name: "Vincennes (94)", short: "Vincennes", dept: "94", lat: 48.8473, lng: 2.4375, perronScore: 85, passoirePct: 21, dvfMedian: 8650, loyerRef: null, encadre: false }
+      };
+
+      const DPE_HEX_COLORS = {
+        A: "#009c6d", B: "#52b153", C: "#78bd76", D: "#f4e700", E: "#f0b50f", F: "#eb8235", G: "#d7221f"
+      };
+
+      let currentDossier = null;
+      let ambientFetchTimer = null;
+      let activeChoroplethMetric = "perron";
+      let activeDeptFilter = "ALL";
+      let userForcedChoroplethOpen = false;
+      const cachedZoneGeoJSON = [];
+      const dvfCommuneMemoryCache = new Map();
+      const inMemoryReviewsStore = new Map();
+
+      const mapContainer = document.getElementById("map");
+      const map = L.map(mapContainer, {
+        center: INITIAL_MAP_CENTER,
+        zoom: INITIAL_ZOOM,
+        minZoom: 11,
+        maxZoom: 20,
+        zoomControl: false,
+        preferCanvas: true
+      });
+
+      if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(() => { map.invalidateSize(); }).observe(mapContainer);
+      }
+      setTimeout(() => map.invalidateSize(), 150);
+
+      const orthoLayer = L.tileLayer(
+        "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        { maxZoom: 20, maxNativeZoom: 19, attribution: "© IGN Géoplateforme" }
+      ).addTo(map);
+
+      const darkPlanLayer = L.tileLayer(
+        "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        { maxZoom: 20, maxNativeZoom: 19, attribution: "© IGN Plan V2" }
+      );
+
+      const cadastreParcelsLayer = L.tileLayer(
+        "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=PCI%20vecteur&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        { minZoom: 15, maxZoom: 20, maxNativeZoom: 19, opacity: 0.88 }
+      ).addTo(map);
+
+      const choroplethGroup = L.layerGroup().addTo(map);
+      const macroHubsGroup = L.layerGroup().addTo(map);
+      const ambientDpeGroup = L.layerGroup().addTo(map);
+      const dansMaRueGroup = L.layerGroup().addTo(map);
+      const selectedParcelGroup = L.layerGroup().addTo(map);
+
+      function getZoneColorAndBadge(stats, metric) {
+        if (metric === "perron") {
+          const s = stats.perronScore;
+          if (s >= 83) return { fill: "#10b981", stroke: "#34d399", textCol: "#022c22", badge: `${s}/100` };
+          if (s >= 77) return { fill: "#84cc16", stroke: "#a3e635", textCol: "#0f172a", badge: `${s}/100` };
+          if (s >= 72) return { fill: "#eab308", stroke: "#facc15", textCol: "#0f172a", badge: `${s}/100` };
+          return { fill: "#f97316", stroke: "#fb923c", textCol: "#ffffff", badge: `${s}/100` };
+        }
+        if (metric === "passoires") {
+          const p = stats.passoirePct;
+          if (p <= 18) return { fill: "#10b981", stroke: "#34d399", textCol: "#022c22", badge: `${p}% F/G` };
+          if (p <= 25) return { fill: "#eab308", stroke: "#facc15", textCol: "#0f172a", badge: `${p}% F/G` };
+          if (p <= 31) return { fill: "#f97316", stroke: "#fb923c", textCol: "#ffffff", badge: `${p}% F/G` };
+          return { fill: "#e11d48", stroke: "#fb7185", textCol: "#ffffff", badge: `${p}% F/G` };
+        }
+        if (metric === "dvf") {
+          const d = stats.dvfMedian;
+          const k = (d / 1000).toFixed(1).replace(".", ",") + "k€";
+          if (d < 6500) return { fill: "#38bdf8", stroke: "#7dd3fc", textCol: "#0f172a", badge: k };
+          if (d < 8800) return { fill: "#818cf8", stroke: "#a5b4fc", textCol: "#ffffff", badge: k };
+          if (d < 11200) return { fill: "#c084fc", stroke: "#d8b4fe", textCol: "#0f172a", badge: k };
+          return { fill: "#f43f5e", stroke: "#fda4af", textCol: "#ffffff", badge: k };
+        }
+        if (!stats.encadre || !stats.loyerRef) {
+          return { fill: "#475569", stroke: "#94a3b8", textCol: "#f8fafc", badge: "Libre" };
+        }
+        const l = stats.loyerRef;
+        if (l < 22) return { fill: "#14b8a6", stroke: "#2dd4bf", textCol: "#022c22", badge: `${l}€/m²` };
+        if (l < 28) return { fill: "#f59e0b", stroke: "#fbbf24", textCol: "#0f172a", badge: `${l}€/m²` };
+        return { fill: "#e11d48", stroke: "#fb7185", textCol: "#ffffff", badge: `${l}€/m²` };
+      }
+
+      function updateHoveredZoneCard(stats) {
+        if (!stats) return;
+        const c = getZoneColorAndBadge(stats, activeChoroplethMetric);
+        const nameEl = document.getElementById("hz-name");
+        const badgeEl = document.getElementById("hz-badge");
+        const scoreEl = document.getElementById("hz-score");
+        const passEl = document.getElementById("hz-passoires");
+        const dvfEl = document.getElementById("hz-dvf");
+        const loyerEl = document.getElementById("hz-loyer");
+        if (!nameEl) return;
+
+        nameEl.textContent = stats.name;
+        badgeEl.textContent = c.badge;
+        badgeEl.style.backgroundColor = c.fill;
+        badgeEl.style.color = c.textCol;
+        scoreEl.textContent = `${stats.perronScore}/100`;
+        passEl.textContent = `${stats.passoirePct}%`;
+        dvfEl.textContent = `${stats.dvfMedian.toLocaleString("fr-FR")} €`;
+        loyerEl.textContent = stats.encadre ? `${stats.loyerRef} €/m²` : "Libre";
+      }
+
+      function updateLegendAndPalmaresUI() {
+        const titleEl = document.getElementById("legend-title");
+        const barEl = document.getElementById("legend-gradient-bar");
+        const labelsEl = document.getElementById("legend-labels");
+
+        if (activeChoroplethMetric === "perron") {
+          titleEl.textContent = "Indice PERRON Global (/100 • Sobriété & Qualité bâtie)";
+          barEl.innerHTML = `<div class="flex-1 bg-orange-500"></div><div class="flex-1 bg-yellow-500"></div><div class="flex-1 bg-lime-500"></div><div class="flex-1 bg-emerald-500"></div>`;
+          labelsEl.innerHTML = `<span>&lt;68</span><span>72–76</span><span>77–82</span><span>≥83</span>`;
+        } else if (activeChoroplethMetric === "passoires") {
+          titleEl.textContent = "Part de Passoires Thermiques (DPE F & G — ADEME)";
+          barEl.innerHTML = `<div class="flex-1 bg-emerald-500"></div><div class="flex-1 bg-yellow-500"></div><div class="flex-1 bg-orange-500"></div><div class="flex-1 bg-rose-600"></div>`;
+          labelsEl.innerHTML = `<span>≤18%</span><span>19–25%</span><span>26–31%</span><span>≥32%</span>`;
+        } else if (activeChoroplethMetric === "dvf") {
+          titleEl.textContent = "Prix Médian Actes Notariés DVF (€/m²)";
+          barEl.innerHTML = `<div class="flex-1 bg-sky-400"></div><div class="flex-1 bg-indigo-400"></div><div class="flex-1 bg-purple-400"></div><div class="flex-1 bg-rose-500"></div>`;
+          labelsEl.innerHTML = `<span>&lt;6k€</span><span>6k–8,8k</span><span>8,8k–11,2k</span><span>&gt;11,2k</span>`;
+        } else {
+          titleEl.textContent = "Encadrement des Loyers (Plafond Réf. DRIHL €/m²)";
+          barEl.innerHTML = `<div class="flex-1 bg-slate-600"></div><div class="flex-1 bg-teal-500"></div><div class="flex-1 bg-amber-500"></div><div class="flex-1 bg-rose-600"></div>`;
+          labelsEl.innerHTML = `<span>Libre (92/94)</span><span>EPT 93 (~19€)</span><span>Paris Est (~26€)</span><span>Centre (&gt;30€)</span>`;
+        }
+
+        let entries = Object.entries(TERRITORIAL_STATS_DB).map(([code, s]) => ({ code, ...s }));
+        if (activeDeptFilter !== "ALL") {
+          entries = entries.filter(e => e.dept === activeDeptFilter);
+        }
+
+        entries.sort((a, b) => {
+          if (activeChoroplethMetric === "perron") return b.perronScore - a.perronScore;
+          if (activeChoroplethMetric === "passoires") return b.passoirePct - a.passoirePct;
+          if (activeChoroplethMetric === "dvf") return b.dvfMedian - a.dvfMedian;
+          return (b.loyerRef || 0) - (a.loyerRef || 0);
+        });
+
+        if (entries.length > 0) {
+          updateHoveredZoneCard(entries[0]);
+        }
+
+        const palmaresList = document.getElementById("palmares-list");
+        palmaresList.innerHTML = entries.map((item, idx) => {
+          const style = getZoneColorAndBadge(item, activeChoroplethMetric);
+          return `
+            <button type="button" data-code="${item.code}" data-lat="${item.lat}" data-lng="${item.lng}" class="palmares-jump-item w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-950/90 hover:bg-slate-800 border border-slate-800/80 text-xs transition">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <span class="font-mono text-[10px] text-slate-400 w-5 text-left shrink-0">#${idx + 1}</span>
+                <span class="font-mono text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0">${item.dept}</span>
+                <span class="text-white font-medium truncate text-left">${item.name}</span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="hidden sm:inline font-mono text-[10px] text-slate-400">${item.dvfMedian.toLocaleString("fr-FR")} €/m²</span>
+                <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:${style.fill};color:${style.textCol}">${style.badge}</span>
+              </div>
+            </button>
+          `;
+        }).join("");
+
+        document.querySelectorAll(".palmares-jump-item").forEach(btn => {
+          btn.addEventListener("mouseenter", () => {
+            const code = btn.getAttribute("data-code");
+            if (code && TERRITORIAL_STATS_DB[code]) {
+              updateHoveredZoneCard(TERRITORIAL_STATS_DB[code]);
+            }
+          });
+          btn.addEventListener("click", () => {
+            const lat = parseFloat(btn.getAttribute("data-lat"));
+            const lng = parseFloat(btn.getAttribute("data-lng"));
+            map.flyTo([lat, lng], 17, { duration: 1.0 });
+            selectAndInspectParcel(lng, lat);
+          });
+        });
+      }
+
+      async function loadOfficialZonePolygons() {
+        try {
+          const urls = [
+            "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/arrondissements/exports/geojson",
+            "https://geo.api.gouv.fr/departements/92/communes?format=geojson&geometry=contour",
+            "https://geo.api.gouv.fr/departements/93/communes?format=geojson&geometry=contour",
+            "https://geo.api.gouv.fr/departements/94/communes?format=geojson&geometry=contour"
+          ];
+          const responses = await Promise.allSettled(urls.map(u => fetch(u)));
+          for (const res of responses) {
+            if (res.status === "fulfilled" && res.value.ok) {
+              const geojson = await res.value.json();
+              if (geojson.features) {
+                geojson.features.forEach(f => {
+                  const p = f.properties || {};
+                  const codeInsee = String(p.c_arinsee || p.code || "");
+                  if (TERRITORIAL_STATS_DB[codeInsee]) {
+                    cachedZoneGeoJSON.push({ codeInsee, feature: f, stats: TERRITORIAL_STATS_DB[codeInsee] });
+                  }
+                });
+              }
+            }
+          }
+          renderChoroplethZones();
+        } catch (err) {
+          renderChoroplethZones();
+        }
+      }
+
+      function setChoroplethCollapsed(collapsed) {
+        const compactPill = document.getElementById("choropleth-compact-pill");
+        const fullCard = document.getElementById("choropleth-full-card");
+        const palmaresPanel = document.getElementById("palmares-panel");
+        const layersBody = document.getElementById("layers-panel-body");
+        const layersChevron = document.getElementById("layers-chevron");
+        if (!compactPill || !fullCard) return;
+        if (collapsed) {
+          compactPill.classList.remove("hidden");
+          fullCard.classList.add("hidden");
+          if (layersBody) layersBody.classList.remove("hidden");
+          if (layersChevron) layersChevron.style.transform = "rotate(0deg)";
+        } else {
+          compactPill.classList.add("hidden");
+          fullCard.classList.remove("hidden");
+          if (palmaresPanel) palmaresPanel.classList.remove("hidden");
+          // Replie automatiquement le tiroir des calques quand le grand palmarès est ouvert pour laisser toute la hauteur
+          if (layersBody) layersBody.classList.add("hidden");
+          if (layersChevron) layersChevron.style.transform = "rotate(-90deg)";
+        }
+      }
+
+      function renderChoroplethZones() {
+        choroplethGroup.clearLayers();
+        macroHubsGroup.clearLayers();
+        const z = map.getZoom();
+        const zonesChecked = document.getElementById("toggle-zones").checked;
+
+        if (z >= 15 && !userForcedChoroplethOpen) {
+          setChoroplethCollapsed(true);
+        } else if (z < 15) {
+          setChoroplethCollapsed(false);
+        }
+
+        if (!zonesChecked || z >= 15) return;
+
+        cachedZoneGeoJSON.forEach(({ codeInsee, feature, stats }) => {
+          if (activeDeptFilter !== "ALL" && stats.dept !== activeDeptFilter) return;
+          const c = getZoneColorAndBadge(stats, activeChoroplethMetric);
+          const layer = L.geoJSON(feature, {
+            style: { color: c.stroke, weight: 2, opacity: 0.9, fillColor: c.fill, fillOpacity: 0.46 }
+          });
+
+          const tooltipHtml = `
+            <div class="space-y-1 min-w-[215px]">
+              <div class="flex items-center justify-between gap-2 border-b border-slate-700/80 pb-1">
+                <span class="font-display font-bold text-xs text-white">${stats.name}</span>
+                <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:${c.fill};color:${c.textCol}">${c.badge}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-1.5 text-[11px] pt-0.5">
+                <div class="text-slate-400">Indice PERRON : <strong class="text-white font-mono">${stats.perronScore}/100</strong></div>
+                <div class="text-slate-400">Passoires F/G : <strong class="text-rose-300 font-mono">${stats.passoirePct}%</strong></div>
+                <div class="text-slate-400">Médiane DVF : <strong class="text-amber-300 font-mono">${stats.dvfMedian.toLocaleString("fr-FR")} €/m²</strong></div>
+                <div class="text-slate-400">Loyer DRIHL : <strong class="text-emerald-300 font-mono">${stats.encadre ? stats.loyerRef + " €/m²" : "Libre"}</strong></div>
+              </div>
+              <div class="text-[10px] font-mono text-amber-300 pt-1">Cliquez pour explorer les parcelles →</div>
+            </div>
+          `;
+
+          layer.bindTooltip(tooltipHtml, { sticky: true, direction: "top", className: "zone-tooltip" });
+          layer.on("mouseover", () => {
+            layer.setStyle({ weight: 3, fillOpacity: 0.68 });
+            updateHoveredZoneCard(stats);
+          });
+          layer.on("mouseout", () => layer.setStyle({ weight: 2, fillOpacity: 0.46 }));
+          layer.on("click", (e) => {
+            L.DomEvent.stopPropagation(e);
+            map.flyTo([stats.lat, stats.lng], 17, { duration: 0.9 });
+            selectAndInspectParcel(stats.lng, stats.lat);
+          });
+          layer.addTo(choroplethGroup);
+        });
+
+        Object.entries(TERRITORIAL_STATS_DB).forEach(([code, stats]) => {
+          if (activeDeptFilter !== "ALL" && stats.dept !== activeDeptFilter) return;
+          const c = getZoneColorAndBadge(stats, activeChoroplethMetric);
+          const icon = L.divIcon({
+            className: "perron-zone-pill",
+            html: `
+              <div style="transform:translate(-50%,-50%);background:rgba(15,23,42,0.94);border:1.5px solid ${c.stroke};border-radius:9999px;padding:2px 8px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.75);display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <span style="width:7px;height:7px;border-radius:9999px;background:${c.fill};display:inline-block;"></span>
+                <span style="font-family:'Inter',sans-serif;font-size:10px;font-weight:700;color:#f8fafc;">${stats.short}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${c.stroke};">${c.badge}</span>
+              </div>
+            `,
+            iconSize: [90, 22],
+            iconAnchor: [45, 11]
+          });
+          const marker = L.marker([stats.lat, stats.lng], { icon });
+          marker.on("mouseover", () => updateHoveredZoneCard(stats));
+          marker.on("click", () => {
+            map.flyTo([stats.lat, stats.lng], 17, { duration: 0.9 });
+            selectAndInspectParcel(stats.lng, stats.lat);
+          });
+          marker.addTo(macroHubsGroup);
+        });
+      }
+
+      function syncCadastreVisibility() {
+        const z = map.getZoom();
+        const parcellesChecked = document.getElementById("toggle-parcelles").checked;
+
+        if (parcellesChecked && z >= 15) {
+          if (!map.hasLayer(cadastreParcelsLayer)) map.addLayer(cadastreParcelsLayer);
+        } else {
+          if (map.hasLayer(cadastreParcelsLayer)) map.removeLayer(cadastreParcelsLayer);
+        }
+      }
+
+      async function fetchWithTimeout(url, timeoutMs = 5000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timer);
+          return res;
+        } catch (err) {
+          clearTimeout(timer);
+          throw err;
+        }
+      }
+
+      function extractAdemeDpeFields(item, fallbackAddress = "Adresse ADEME") {
+        const grade = String(item.etiquette_dpe || "").trim().toUpperCase().charAt(0);
+        const numDpe = item.numero_dpe || item._id || "ADEME";
+        const adresse = item.adresse_ban || item.adresse_brute || fallbackAddress;
+        const surface = Math.round(Number(item.surface_habitable_logement || 0));
+        const conso = Math.round(Number(item.conso_5_usages_par_m2_ep || item.consommation_energie || 0));
+        const rawDate = String(item.date_etablissement_dpe || "").substring(0, 10);
+        const chauffage = item.type_generateur_chiffre_principal_chauffage || item.energie_principale_chauffage || "Chauffage standard";
+        return { grade, numDpe, adresse, surface, conso, rawDate, chauffage };
+      }
+
+      function parseDateToTimestamp(rawDate) {
+        if (!rawDate) return 0;
+        const s = String(rawDate).trim().substring(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          const [y, m, d] = s.split("-").map(Number);
+          return Date.UTC(y, m - 1, d);
+        }
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+          const [d, m, y] = s.split("/").map(Number);
+          return Date.UTC(y, m - 1, d);
+        }
+        const parsed = Date.parse(s);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+
+      function formatTimestampToFR(ts) {
+        if (!ts) return "—";
+        const d = new Date(ts);
+        return `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}/${d.getUTCFullYear()}`;
+      }
+
+      async function refreshAmbientMapPoints() {
+        const z = map.getZoom();
+        document.getElementById("zoom-indicator").textContent = `Zoom ${z}`;
+        syncCadastreVisibility();
+        renderChoroplethZones();
+
+        if (!document.getElementById("toggle-batiments").checked || z < 15) {
+          ambientDpeGroup.clearLayers();
+          return;
+        }
+
+        const center = map.getCenter();
+        try {
+          const url = `https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?geo_distance=${center.lng},${center.lat},400&size=40`;
+          const res = await fetchWithTimeout(url, 4000);
+          if (!res.ok) return;
+          const data = await res.json();
+          ambientDpeGroup.clearLayers();
+
+          (data.results || []).forEach(item => {
+            const parsed = extractAdemeDpeFields(item);
+            if (!item.geopoint || !DPE_HEX_COLORS[parsed.grade]) return;
+            const parts = String(item.geopoint).split(",");
+            const lat = parseFloat(parts[0]);
+            const lon = parseFloat(parts[1]);
+            if (isNaN(lat) || isNaN(lon)) return;
+
+            const color = DPE_HEX_COLORS[parsed.grade];
+            const textCol = ["C","D","E"].includes(parsed.grade) ? "#0f172a" : "#ffffff";
+            const marker = L.circleMarker([lat, lon], { radius: 6, color: "#0f172a", weight: 1.5, fillColor: color, fillOpacity: 0.92 });
+
+            marker.bindPopup(`
+              <div class="text-xs space-y-1 min-w-[200px]">
+                <div class="flex items-center justify-between">
+                  <span class="px-1.5 py-0.5 rounded font-mono font-bold text-[11px]" style="background:${color};color:${textCol}">DPE ${parsed.grade}</span>
+                  <span class="font-mono text-[10px] text-slate-400">N° ${parsed.numDpe}</span>
+                </div>
+                <div class="font-semibold text-white">${parsed.adresse}</div>
+                <div class="text-[11px] text-slate-300">${parsed.surface > 0 ? parsed.surface + " m² • " : ""}${parsed.conso} kWh/m²</div>
+                <button onclick="window.perronInspectPoint(${lon}, ${lat})" class="mt-1 w-full py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-medium">Inspecter →</button>
+              </div>
+            `);
+            marker.addTo(ambientDpeGroup);
+          });
+        } catch (e) {}
+      }
+
+      window.perronInspectPoint = function (lon, lat) {
+        map.closePopup();
+        selectAndInspectParcel(lon, lat);
+      };
+
+      map.on("moveend", () => {
+        clearTimeout(ambientFetchTimer);
+        ambientFetchTimer = setTimeout(refreshAmbientMapPoints, 300);
+      });
+      map.on("zoomend", () => {
+        syncCadastreVisibility();
+        renderChoroplethZones();
+      });
+
+      async function fetchRealCadastreParcel(lng, lat) {
+        try {
+          const geom = encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [lng, lat] }));
+          const res = await fetchWithTimeout(`https://apicarto.ign.fr/api/cadastre/parcelle?geom=${geom}`, 2500);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.features && data.features.length > 0) return data.features[0];
+          }
+        } catch (e) {}
+        return null;
+      }
+
+      map.on("click", async (e) => {
+        await selectAndInspectParcel(e.latlng.lng, e.latlng.lat);
+      });
+
+      let activeInspectionToken = 0;
+
+      async function selectAndInspectParcel(lng, lat, forcedAddress = null, keepOverviewOpen = false) {
+        const myToken = ++activeInspectionToken;
+        if (!keepOverviewOpen) {
+          userForcedChoroplethOpen = false;
+          setChoroplethCollapsed(true);
+        } else {
+          setChoroplethCollapsed(false);
+        }
+        selectedParcelGroup.clearLayers();
+
+        L.circleMarker([lat, lng], { radius: 7, color: "#0f172a", weight: 2.5, fillColor: "#f59e0b", fillOpacity: 1 }).addTo(selectedParcelGroup);
+
+        document.getElementById("dossier-address").textContent = forcedAddress ? forcedAddress.name : "Identification de l'adresse...";
+        document.getElementById("dossier-commune").textContent = `Coordonnées GPS : ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById("dvf-avg-price").innerHTML = `<span class="text-sm text-amber-300 font-normal animate-pulse">Consultation DVF...</span>`;
+
+        const [parcelFeature, banAddress] = await Promise.all([
+          fetchRealCadastreParcel(lng, lat),
+          forcedAddress ? Promise.resolve(forcedAddress) : fetchReverseBAN(lng, lat)
+        ]);
+
+        if (myToken !== activeInspectionToken) return;
+
+        let parcelProps = { id: null, commune: null, section: null, numero: null, contenance: null };
+        selectedParcelGroup.clearLayers();
+
+        if (parcelFeature) {
+          const p = parcelFeature.properties || {};
+          const codeInsee = p.code_insee || `${p.code_dep || "75"}${p.code_com || "101"}`;
+          parcelProps = {
+            id: p.id || `${codeInsee}${p.com_abs || "000"}${p.section || ""}${p.numero || ""}`,
+            commune: codeInsee,
+            section: p.section || "",
+            numero: p.numero || "",
+            contenance: p.contenance ? Number(p.contenance) : null
+          };
+          L.geoJSON(parcelFeature, { style: { color: "#ffffff", weight: 3, fillColor: "#f59e0b", fillOpacity: 0.42 } }).addTo(selectedParcelGroup);
+        }
+
+        L.circleMarker([lat, lng], { radius: 6, color: "#0f172a", weight: 2, fillColor: "#fbbf24", fillOpacity: 1 }).addTo(selectedParcelGroup);
+
+        await inspectLocation({ lng, lat, parcelProps, addressInfo: banAddress, myToken });
+      }
+
+      async function fetchReverseBAN(lng, lat) {
+        try {
+          const res = await fetchWithTimeout(`https://api-adresse.data.gouv.fr/reverse/?lon=${lng}&lat=${lat}`, 2000);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.features && data.features.length > 0) {
+              const p = data.features[0].properties;
+              return { name: p.name || p.label, postcode: p.postcode, city: p.city, citycode: p.citycode, street: p.street || p.name, housenumber: p.housenumber || "", id_ban: p.id };
+            }
+          }
+        } catch (e) {}
+        return null;
+      }
+
+      function computeRentControlMetrics(addressInfo, deptCode) {
+        const postcode = addressInfo.postcode || "75001";
+        const citycode = String(addressInfo.citycode || "");
+        const isEncadre = deptCode === "75" || (deptCode === "93" && COMMUNES_93_ENCADREES.has(citycode)) || citycode.startsWith("751");
+
+        let loyerRef = null, loyerMajore = null, loyerMinore = null;
+        if (deptCode === "75" || citycode.startsWith("751")) {
+          let arr = parseInt(postcode.substring(3, 5), 10) || 1;
+          loyerRef = BAREME_LOYERS_PARIS_ARR[arr] || 28.5;
+          loyerMajore = Number((loyerRef * 1.2).toFixed(2));
+          loyerMinore = Number((loyerRef * 0.7).toFixed(2));
+        } else if (isEncadre) {
+          loyerRef = 20.2;
+          loyerMajore = Number((loyerRef * 1.2).toFixed(2));
+          loyerMinore = Number((loyerRef * 0.7).toFixed(2));
+        }
+        return { isEncadre, zoneLabel: isEncadre ? `DRIHL (${postcode})` : `Marché Libre (${deptCode})`, loyerRef, loyerMajore, loyerMinore };
+      }
+
+      async function inspectLocation({ lng, lat, parcelProps = {}, addressInfo = null, myToken }) {
+        if (!addressInfo) {
+          const comm = parcelProps.commune || "75101";
+          const isParis = comm.startsWith("751");
+          const arrNum = isParis ? comm.substring(3, 5) : "00";
+          addressInfo = { name: parcelProps.id ? `Parcelle ${parcelProps.id}` : `Point GPS`, postcode: isParis ? `750${arrNum}` : `${comm.substring(0, 2)}000`, city: isParis ? `Paris ${parseInt(arrNum,10)}e` : "Commune", citycode: comm, street: "", housenumber: "", id_ban: "" };
+        }
+
+        const deptCode = (addressInfo.postcode || addressInfo.citycode || "75").substring(0, 2);
+        const parcelId = parcelProps.id || "Non cadastré";
+        const immediateRent = computeRentControlMetrics(addressInfo, deptCode);
+
+        currentDossier = {
+          timestamp: new Date().toISOString(),
+          coordinates: { lng, lat },
+          parcelle: { id: parcelId, section: parcelProps.section || "—", numero: parcelProps.numero || "—", contenance_m2: parcelProps.contenance, departement: deptCode },
+          adresse: addressInfo,
+          score: { value: "…", label: "Calcul...", colorClass: "amber" },
+          marche_loyers: { ...immediateRent, sourceLabel: "Chargement DVF 2025–2026...", scopeNotice: "Recherche...", avgSqm: null, minSqm: null, maxSqm: null, transactions: [], isLoading: true },
+          copropriete_rnic: { rnicCode: "Consultation RNIC", totalLots: "—", lotsHab: "—", syndic: "—", mandat: "—", periode: "—", style: "—", hasThermalAlert: false, reviews: inMemoryReviewsStore.get(parcelId) || [] },
+          dpe_ademe: { isLive: false, counts: {A:0,B:0,C:0,D:0,E:0,F:0,G:0}, total: 0, passoireRatio: null, median: "—", items: [] },
+          environnement_rue: { isLive: false, deptCode, total: 0, categories: {}, items: [], noticeHorsParis: null }
+        };
+        renderDossierUI(currentDossier);
+
+        // Appels parallèles non bloquants
+        fetchRealDVF(parcelProps, addressInfo, deptCode, immediateRent, lng, lat).then(res => {
+          if (myToken !== activeInspectionToken) return;
+          currentDossier.marche_loyers = res;
+          currentDossier.score = computeScore(currentDossier);
+          renderDossierUI(currentDossier);
+        });
+
+        fetchRealAdemeDPE(addressInfo, lng, lat).then(res => {
+          if (myToken !== activeInspectionToken) return;
+          currentDossier.dpe_ademe = res;
+          // Enrichissement des infos bâti/copro à partir des diagnostics ADEME réels
+          if (res.total > 0) {
+            currentDossier.copropriete_rnic.totalLots = `${res.total} DPE recensés`;
+            currentDossier.copropriete_rnic.lotsHab = `Médiane DPE ${res.median}`;
+            currentDossier.copropriete_rnic.syndic = res.passoireRatio > 30 ? "Audit requis" : "Standard";
+            currentDossier.copropriete_rnic.mandat = "Base ADEME";
+            currentDossier.copropriete_rnic.periode = res.anneeConstruction || "Bâti existant";
+            currentDossier.copropriete_rnic.style = res.chauffageDominant || "Collectif / Indiv.";
+            currentDossier.copropriete_rnic.hasThermalAlert = res.passoireRatio >= 35;
+          }
+          currentDossier.score = computeScore(currentDossier);
+          renderDossierUI(currentDossier);
+        });
+
+        fetchRealDansMaRue(lng, lat, deptCode).then(res => {
+          if (myToken !== activeInspectionToken) return;
+          currentDossier.environnement_rue = res;
+          currentDossier.score = computeScore(currentDossier);
+          renderDossierUI(currentDossier);
+        });
+      }
+
+      function haversineMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const toRad = d => (d * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+
+      function splitCsvLine(line) {
+        const res = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === "," && !inQuotes) {
+            res.push(cur);
+            cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        res.push(cur);
+        return res;
+      }
+
+      function parseGeoDvfCsvText(csvText) {
+        const lines = csvText.split(/\r?\n/);
+        if (lines.length < 2) return [];
+        const headers = splitCsvLine(lines[0]);
+        const idx = {};
+        headers.forEach((h, i) => { idx[h.trim()] = i; });
+
+        const grouped = new Map();
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line) continue;
+          const cols = splitCsvLine(line);
+
+          const nature = cols[idx.nature_mutation] || "";
+          if (nature && !nature.startsWith("Vente")) continue;
+
+          const typeLocal = cols[idx.type_local] || "";
+          if (typeLocal !== "Appartement" && typeLocal !== "Maison") continue;
+
+          const rawDate = cols[idx.date_mutation] || "";
+          const ts = parseDateToTimestamp(rawDate);
+          if (!ts || ts < MIN_DVF_TIMESTAMP_2025) continue;
+
+          const valeur = parseFloat((cols[idx.valeur_fonciere] || "").replace(",", "."));
+          const surface = parseFloat((cols[idx.surface_reelle_bati] || "").replace(",", "."));
+          if (isNaN(valeur) || valeur < 25000 || isNaN(surface) || surface < 9) continue;
+
+          const idMut = cols[idx.id_mutation] || `${rawDate}_${valeur}_${cols[idx.id_parcelle]}`;
+          const idParcelle = cols[idx.id_parcelle] || "";
+          const lon = parseFloat(cols[idx.longitude]);
+          const lat = parseFloat(cols[idx.latitude]);
+          const numVoie = cols[idx.adresse_numero] || "";
+          const nomVoie = cols[idx.adresse_nom_voie] || "";
+          const addrLabel = `${numVoie} ${nomVoie}`.trim();
+          const codeVoie = cols[idx.adresse_code_voie] || "";
+          const pieces = parseInt(cols[idx.nombre_pieces_principales] || "0", 10) || 0;
+
+          // Clé de dédoublonnage pour éviter qu'un appartement avec cave ne double sa surface
+          const dedupLotKey = `${idParcelle}_${surface}_${pieces}_${typeLocal}`;
+
+          if (!grouped.has(idMut)) {
+            grouped.set(idMut, {
+              idMut,
+              timestamp: ts,
+              isoDate: rawDate,
+              date: formatTimestampToFR(ts),
+              type: typeLocal,
+              pieces,
+              prix: valeur,
+              surface: surface,
+              idParcelle,
+              lon: isNaN(lon) ? null : lon,
+              lat: isNaN(lat) ? null : lat,
+              adresse: addrLabel,
+              nomVoie: nomVoie.toUpperCase(),
+              codeVoie,
+              seenLots: new Set([dedupLotKey]),
+              lotCount: 1
+            });
+          } else {
+            const g = grouped.get(idMut);
+            if (!g.seenLots.has(dedupLotKey)) {
+              g.seenLots.add(dedupLotKey);
+              g.surface += surface;
+              g.lotCount += 1;
+            }
+          }
+        }
+
+        const results = [];
+        for (const g of grouped.values()) {
+          if (g.lotCount > 3) continue; // Écarte les ventes en bloc d'immeubles entiers qui faussent le prix/m²
+          const sqm = Math.round(g.prix / g.surface);
+          if (sqm < 2000 || sqm > 38000) continue;
+          results.push({
+            timestamp: g.timestamp,
+            isoDate: g.isoDate,
+            date: g.date,
+            type: g.pieces > 0 ? `${g.type === "Appartement" ? "Appt" : "Maison"} T${g.pieces}` : g.type,
+            surface: Math.round(g.surface),
+            prix: Math.round(g.prix),
+            sqm,
+            idParcelle: g.idParcelle,
+            lon: g.lon,
+            lat: g.lat,
+            adresse: g.adresse,
+            nomVoie: g.nomVoie || ""
+          });
+        }
+        return results;
+      }
+
+      async function loadCommuneDvf2025And2026(codeInsee, deptCode) {
+        if (dvfCommuneMemoryCache.has(codeInsee)) {
+          return dvfCommuneMemoryCache.get(codeInsee);
+        }
+
+        const dept = codeInsee.substring(0, 2) || deptCode || "75";
+        const allMutations = [];
+        let status2026 = "404_NOT_YET_GEOCODED";
+
+        // 1. Source primaire : Fichiers CSV communaux officiels Etalab Geo-DVF (2026 + 2025)
+        const csvYears = ["2026", "2025"];
+        const csvPromises = csvYears.map(async (yr) => {
+          try {
+            const url = `https://files.data.gouv.fr/geo-dvf/latest/csv/${yr}/communes/${dept}/${codeInsee}.csv`;
+            const res = await fetchWithTimeout(url, 8000);
+            if (res.ok) {
+              const text = await res.text();
+              const parsed = parseGeoDvfCsvText(text);
+              if (yr === "2026" && parsed.length > 0) status2026 = "AVAILABLE";
+              return parsed;
+            } else if (yr === "2026" && res.status === 404) {
+              status2026 = "404_NOT_YET_GEOCODED";
+            }
+          } catch (e) {}
+          return [];
+        });
+
+        const csvArrays = await Promise.all(csvPromises);
+        csvArrays.forEach(arr => allMutations.push(...arr));
+
+        const cachedObj = { mutations: allMutations, status2026 };
+        // Ne met en cache que si le CSV géolocalisé a bien répondu avec des coordonnées GPS
+        if (allMutations.length > 0) {
+          dvfCommuneMemoryCache.set(codeInsee, cachedObj);
+        }
+        return cachedObj;
+      }
+
+      async function fetchLocalBboxCeremaDvf(lng, lat) {
+        const dLon = 0.0028; // ~210m autour de la parcelle cliquée
+        const dLat = 0.0020;
+        const bbox = `${(lng - dLon).toFixed(5)},${(lat - dLat).toFixed(5)},${(lng + dLon).toFixed(5)},${(lat + dLat).toFixed(5)}`;
+        const localItems = [];
+
+        for (const yr of ["2026", "2025"]) {
+          try {
+            const url = `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut=${yr}&page_size=50`;
+            const res = await fetchWithTimeout(url, 4500);
+            if (res.ok) {
+              const data = await res.json();
+              (data.features || []).forEach(f => {
+                const m = f.properties || {};
+                const ts = parseDateToTimestamp(m.datemut);
+                if (!ts || ts < MIN_DVF_TIMESTAMP_2025) return;
+                const rawType = String(m.libtypbien || "").toUpperCase();
+                if (rawType.includes("ACTIVITE") || rawType.includes("DEPENDANCE") || rawType.includes("TERRAIN")) return;
+                const prix = parseFloat(m.valeurfonc);
+                const surface = parseFloat(m.sbati);
+                if (isNaN(prix) || prix < 25000 || isNaN(surface) || surface < 9) return;
+                const sqm = Math.round(prix / surface);
+                if (sqm < 2000 || sqm > 38000) return;
+                const parcellesList = Array.isArray(m.l_idpar) ? m.l_idpar : [];
+                let itemLat = lat, itemLon = lng;
+                if (f.geometry && f.geometry.coordinates) {
+                  const coords = f.geometry.coordinates.flat(Infinity);
+                  if (coords.length >= 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+                    itemLon = coords[0];
+                    itemLat = coords[1];
+                  }
+                }
+                localItems.push({
+                  timestamp: ts,
+                  isoDate: m.datemut,
+                  date: formatTimestampToFR(ts),
+                  type: rawType.includes("MAISON") ? "Maison" : "Appartement",
+                  surface: Math.round(surface),
+                  prix: Math.round(prix),
+                  sqm,
+                  idParcelle: parcellesList[0] || "",
+                  parcellesList,
+                  lon: itemLon,
+                  lat: itemLat,
+                  adresse: parcellesList[0] ? `Parcelle ${parcellesList[0].slice(-6)}` : "Proximité immédiate"
+                });
+              });
+            }
+          } catch (e) {}
+        }
+        return localItems;
+      }
+
+      async function fetchRealDVF(parcelProps, addressInfo, deptCode, rentMetrics, lng, lat) {
+        let codeInsee = String(parcelProps.commune || addressInfo.citycode || "");
+        if ((!codeInsee || codeInsee === "75056") && addressInfo.postcode && addressInfo.postcode.startsWith("750")) {
+          codeInsee = `751${addressInfo.postcode.substring(3, 5)}`;
+        }
+        if (!codeInsee) codeInsee = "75101";
+
+        let { mutations, status2026 } = await loadCommuneDvf2025And2026(codeInsee, deptCode);
+
+        // Si le CSV communal n'a pas pu être chargé, on interroge la bbox locale Cerema spécifique à CE clic
+        if (!mutations || mutations.length === 0) {
+          mutations = await fetchLocalBboxCeremaDvf(lng, lat);
+        }
+
+        const targetParcelId = String(parcelProps.id || "").trim();
+        const targetSectionPrefix = (parcelProps.commune && parcelProps.section)
+          ? `${parcelProps.commune}000${parcelProps.section}`
+          : (targetParcelId ? targetParcelId.substring(0, 10) : "");
+        const targetStreet = String(addressInfo.street || "").toUpperCase().replace(/^(RUE|AVENUE|BOULEVARD|PLACE|IMPASSE|ALLEE|QUAI|COURS)\s+(DE\s+LA\s+|DE\s+L'|DU\s+|DES\s+|DE\s+|D')?/i, "").trim();
+
+        // Calcul de proximité exact pour LA parcelle cliquée (change à chaque clic !)
+        const scored = mutations.map(m => {
+          const exactParcel = Boolean(
+            targetParcelId && (
+              m.idParcelle === targetParcelId ||
+              (m.parcellesList && m.parcellesList.includes(targetParcelId))
+            )
+          );
+          const sameSection = Boolean(targetSectionPrefix && m.idParcelle && m.idParcelle.startsWith(targetSectionPrefix));
+          const sameStreet = Boolean(targetStreet && targetStreet.length >= 4 && m.nomVoie && m.nomVoie.includes(targetStreet));
+          const dist = (m.lat !== null && m.lon !== null) ? Math.round(haversineMeters(lat, lng, m.lat, m.lon)) : (exactParcel ? 0 : 99999);
+          return { ...m, exactParcel, sameSection, sameStreet, dist };
+        });
+
+        // 1. Priorité stricte à la parcelle cliquée et aux immeubles à moins de 180m
+        let filtered = scored.filter(m => m.exactParcel || m.sameStreet || m.dist <= 180);
+        let scopeType = "Parcelle & Rue (<180m)";
+
+        // 2. Élargissement à 350m ou même section cadastrale si le rayon immédiat a moins de 3 ventes en 2025
+        if (filtered.length < 3) {
+          filtered = scored.filter(m => m.exactParcel || m.dist <= 350 || m.sameSection);
+          scopeType = "Quartier immédiat (<350m)";
+        }
+
+        // 3. Si toujours vide, on prend les ventes les plus proches de la commune triées par distance
+        if (filtered.length === 0 && scored.length > 0) {
+          scored.sort((a, b) => a.dist - b.dist);
+          filtered = scored.slice(0, 15);
+          scopeType = `Plus proches dans la commune (${codeInsee})`;
+        }
+
+        // Tri : 1. Parcelle exacte, 2. Même rue / Très proche (<80m), 3. Date décroissante
+        filtered.sort((a, b) => {
+          if (a.exactParcel !== b.exactParcel) return a.exactParcel ? -1 : 1;
+          const aVeryClose = a.dist <= 80 || a.sameStreet;
+          const bVeryClose = b.dist <= 80 || b.sameStreet;
+          if (aVeryClose !== bVeryClose) return aVeryClose ? -1 : 1;
+          return b.timestamp - a.timestamp;
+        });
+
+        const topTx = filtered.slice(0, 15);
+
+        let avgSqm = null, minSqm = null, maxSqm = null;
+        if (topTx.length > 0) {
+          const sqms = topTx.map(t => t.sqm);
+          avgSqm = Math.round(sqms.reduce((a, b) => a + b, 0) / sqms.length);
+          minSqm = Math.min(...sqms);
+          maxSqm = Math.max(...sqms);
+        }
+
+        const parcelHitsCount = topTx.filter(t => t.exactParcel).length;
+        const s1Notice = status2026 === "AVAILABLE"
+          ? `Actes notariés publiés • ${scopeType}`
+          : `Actes notariés publiés • ${scopeType}`;
+
+        return {
+          ...rentMetrics,
+          status2026,
+          sourceLabel: s1Notice,
+          scopeNotice: parcelHitsCount > 0
+            ? `${parcelHitsCount} sur la parcelle • ${topTx.length} proches`
+            : `${topTx.length} transactions proches`,
+          avgSqm, minSqm, maxSqm,
+          transactions: topTx,
+          isLoading: false
+        };
+      }
+
+      async function fetchRealAdemeDPE(addressInfo, lng, lat) {
+        const counts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0 };
+        const items = [];
+        let anneeConstruction = null;
+        let chauffageDominant = null;
+
+        try {
+          const url = `https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?geo_distance=${lng},${lat},150&size=35`;
+          const res = await fetchWithTimeout(url, 3500);
+          if (res.ok) {
+            const data = await res.json();
+            (data.results || []).forEach(r => {
+              const parsed = extractAdemeDpeFields(r, addressInfo.name);
+              if (counts[parsed.grade] !== undefined) {
+                counts[parsed.grade]++;
+                if (!anneeConstruction && (r.annee_construction || r.periode_construction)) {
+                  anneeConstruction = r.annee_construction || r.periode_construction;
+                }
+                if (!chauffageDominant && parsed.chauffage && parsed.chauffage !== "Chauffage standard") {
+                  chauffageDominant = String(parsed.chauffage).substring(0, 22);
+                }
+                const ts = parseDateToTimestamp(parsed.rawDate);
+                items.push({ numDpe: parsed.numDpe, etiquette: parsed.grade, surface: parsed.surface, conso: parsed.conso, timestamp: ts, date: formatTimestampToFR(ts), adresseBrute: parsed.adresse, chauffage: parsed.chauffage });
+              }
+            });
+            items.sort((a, b) => b.timestamp - a.timestamp);
+          }
+        } catch (e) {}
+
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        const passoireRatio = total > 0 ? Math.round(((counts.F + counts.G) / total) * 100) : null;
+        let median = "—";
+        if (total > 0) {
+          let cum = 0;
+          for (const l of ["A","B","C","D","E","F","G"]) {
+            cum += counts[l];
+            if (cum >= total / 2) { median = l; break; }
+          }
+        }
+        return { isLive: total > 0, counts, total, passoireRatio, median, items, anneeConstruction, chauffageDominant };
+      }
+
+      async function fetchRealDansMaRue(lng, lat, deptCode) {
+        dansMaRueGroup.clearLayers();
+        if (deptCode !== "75") {
+          return { isLive: false, deptCode, total: 0, categories: {}, items: [], noticeHorsParis: "DansMaRue est exclusif à la Ville de Paris (75)." };
+        }
+        try {
+          const w = encodeURIComponent(`within_distance(geo_point_2d, geom'POINT(${lng} ${lat})', 85m)`);
+          const res = await fetchWithTimeout(`https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/dans-ma-rue/records?where=${w}&limit=20`, 2800);
+          if (res.ok) {
+            const data = await res.json();
+            const catCounts = {}, items = [];
+            (data.results || []).forEach(r => {
+              if (!r.geo_point_2d) return;
+              const type = r.type || "Voirie";
+              const sousType = r.soustype || "Signalement";
+              const ts = parseDateToTimestamp(r.datedecl);
+              const adresse = r.adresse || "Rue Paris";
+              catCounts[type] = (catCounts[type] || 0) + 1;
+              const itemObj = { type, sousType, timestamp: ts, date: formatTimestampToFR(ts), adresse, lon: r.geo_point_2d.lon, lat: r.geo_point_2d.lat };
+              items.push(itemObj);
+
+              if (document.getElementById("toggle-dansmarue")?.checked) {
+                const m = L.circleMarker([itemObj.lat, itemObj.lon], {
+                  radius: 5,
+                  color: "#ffffff",
+                  weight: 1.2,
+                  fillColor: "#f43f5e",
+                  fillOpacity: 0.9
+                });
+                m.bindPopup(`
+                  <div class="text-xs space-y-1">
+                    <div class="font-bold text-rose-300">${itemObj.type}</div>
+                    <div class="text-white">${itemObj.sousType}</div>
+                    <div class="font-mono text-[10px] text-amber-300">📍 ${itemObj.adresse}</div>
+                    <div class="font-mono text-[10px] text-slate-400">Déclaré le ${itemObj.date}</div>
+                  </div>
+                `);
+                m.addTo(dansMaRueGroup);
+              }
+            });
+            items.sort((a, b) => b.timestamp - a.timestamp);
+            return { isLive: true, deptCode, total: items.length, categories: catCounts, items, noticeHorsParis: null };
+          }
+        } catch (e) {}
+        return { isLive: true, deptCode, total: 0, categories: {}, items: [], noticeHorsParis: null };
+      }
+
+      function computeScore(d) {
+        let score = 80;
+        if (d.dpe_ademe.passoireRatio !== null) score -= Math.round(d.dpe_ademe.passoireRatio * 0.3);
+        if (d.environnement_rue.total > 10) score -= 4;
+        score = Math.max(35, Math.min(95, score));
+        return { value: score, label: score >= 75 ? "Indice Favorable" : "Vigilance Bâti/DPE", colorClass: score >= 75 ? "emerald" : "amber" };
+      }
+
+      function updateRentSimulatorUI() {
+        if (!currentDossier) return;
+        const m = currentDossier.marche_loyers;
+        const surf = parseInt(document.getElementById("sim-surface-slider")?.value || "45", 10);
+        document.getElementById("sim-surface-val").textContent = surf;
+
+        if (m && m.isEncadre && m.loyerRef && m.loyerMajore) {
+          document.getElementById("sim-loyer-base").textContent = `${Math.round(m.loyerRef * surf).toLocaleString("fr-FR")} € /mois`;
+          document.getElementById("sim-loyer-max").textContent = `${Math.round(m.loyerMajore * surf).toLocaleString("fr-FR")} € /mois`;
+        } else {
+          document.getElementById("sim-loyer-base").textContent = "Marché libre";
+          document.getElementById("sim-loyer-max").textContent = "Non plafonné";
+        }
+      }
+
+      function renderDossierUI(d) {
+        document.getElementById("badge-dept").textContent = `${d.parcelle.departement} IDF`;
+        document.getElementById("badge-parcelle").textContent = `Parcelle ${d.parcelle.id}`;
+        document.getElementById("badge-surface").textContent = d.parcelle.contenance_m2 ? `${d.parcelle.contenance_m2} m²` : "Surface N/C";
+        document.getElementById("dossier-address").textContent = d.adresse.name;
+        document.getElementById("dossier-commune").textContent = `${d.adresse.postcode} ${d.adresse.city}`;
+
+        document.getElementById("score-value").textContent = d.score.value;
+        document.getElementById("score-label").textContent = d.score.label;
+
+        const m = d.marche_loyers;
+        document.getElementById("dvf-trend-badge").textContent = m.scopeNotice;
+        document.getElementById("dvf-count-label").textContent = m.sourceLabel;
+
+        const s1Pill = document.getElementById("dvf-s1-2026-pill");
+        if (s1Pill) {
+          if (m.isLoading) {
+            s1Pill.textContent = "Mise à jour...";
+            s1Pill.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-amber-500/30 shrink-0";
+          } else if (m.status2026 === "AVAILABLE") {
+            s1Pill.textContent = "Millésimes 2025–2026";
+            s1Pill.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0";
+          } else {
+            s1Pill.textContent = "Base Notariale DVF";
+            s1Pill.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0";
+          }
+        }
+
+        if (m.isLoading) {
+          document.getElementById("dvf-avg-price").innerHTML = `<span class="text-sm text-amber-300 animate-pulse">Calcul en cours...</span>`;
+        } else if (m.avgSqm) {
+          document.getElementById("dvf-avg-price").innerHTML = `${m.avgSqm.toLocaleString("fr-FR")} €<span class="text-xs text-slate-400">/m²</span>`;
+          document.getElementById("dvf-range").textContent = `Fourchette : ${m.minSqm.toLocaleString("fr-FR")} € – ${m.maxSqm.toLocaleString("fr-FR")} €/m²`;
+        } else {
+          document.getElementById("dvf-avg-price").innerHTML = `<span class="text-sm text-slate-400">Aucune vente récente</span>`;
+          document.getElementById("dvf-range").textContent = "Aucune mutation enregistrée sur la période";
+        }
+
+        const loyerTag = document.getElementById("loyer-status-tag");
+        loyerTag.textContent = m.zoneLabel;
+        if (m.isEncadre && m.loyerMajore) {
+          document.getElementById("loyer-majore").innerHTML = `${m.loyerMajore.toFixed(2).replace(".",",")} €<span class="text-xs text-slate-400">/m²</span>`;
+          document.getElementById("loyer-ref-detail").textContent = `Réf : ${m.loyerRef} €/m² • Minoré : ${m.loyerMinore} €/m²`;
+        } else {
+          document.getElementById("loyer-majore").innerHTML = `<span class="text-sm text-slate-300">Loyer Libre</span>`;
+          document.getElementById("loyer-ref-detail").textContent = "Commune hors encadrement DRIHL";
+        }
+
+        updateRentSimulatorUI();
+
+        const dvfBody = document.getElementById("dvf-table-body");
+        if (m.isLoading) {
+          dvfBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-amber-300 animate-pulse">Chargement des transactions notariées...</td></tr>`;
+        } else if (m.transactions.length === 0) {
+          dvfBody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">Aucune vente enregistrée à proximité immédiate depuis 2025.</td></tr>`;
+        } else {
+          dvfBody.innerHTML = m.transactions.map(t => {
+            const shortDate = t.date && t.date.length === 10 ? `${t.date.substring(0, 6)}${t.date.substring(8, 10)}` : t.date;
+            return `
+              <tr class="hover:bg-slate-900/70 transition-colors">
+                <td class="py-2 px-2 text-slate-300 whitespace-nowrap align-top">${shortDate}</td>
+                <td class="py-2 px-2 text-white font-medium align-top min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="truncate">${t.type}</span>
+                    ${t.exactParcel
+                      ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">Immeuble</span>`
+                      : (t.dist < 9000 ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700 shrink-0">à ${t.dist}m</span>` : "")}
+                  </div>
+                  ${t.adresse ? `<div class="text-[10px] text-slate-400 font-normal truncate mt-0.5">${t.adresse}</div>` : ""}
+                </td>
+                <td class="py-2 px-1.5 text-right text-slate-300 whitespace-nowrap align-top">${t.surface} m²</td>
+                <td class="py-2 px-2.5 text-right whitespace-nowrap align-top">
+                  <div class="text-amber-300 font-semibold leading-tight">${t.prix.toLocaleString("fr-FR")} €</div>
+                  <div class="text-[10px] text-slate-400 leading-tight mt-0.5">${t.sqm.toLocaleString("fr-FR")} €/m²</div>
+                </td>
+              </tr>
+            `;
+          }).join("");
+        }
+
+        // Pilier 2 : Copropriété & Cahier de Perron
+        const c = d.copropriete_rnic;
+        document.getElementById("copro-lots").textContent = c.totalLots;
+        document.getElementById("copro-lots-hab").textContent = c.lotsHab;
+        document.getElementById("copro-syndic").textContent = c.syndic;
+        document.getElementById("copro-mandat").textContent = c.mandat;
+        document.getElementById("copro-periode").textContent = c.periode;
+        document.getElementById("copro-style").textContent = c.style;
+
+        const reviewsList = document.getElementById("reviews-list");
+        if (!c.reviews || c.reviews.length === 0) {
+          reviewsList.innerHTML = `<div class="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800/80 rounded-lg p-2.5 text-center">Aucune note citoyenne déposée sur cette parcelle pour le moment.</div>`;
+        } else {
+          reviewsList.innerHTML = c.reviews.map(rev => `
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold text-amber-300">${rev.role}</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">${rev.tag}</span>
+              </div>
+              <p class="text-slate-200">${rev.text}</p>
+            </div>
+          `).join("");
+        }
+
+        // Pilier 3 : DPE ADEME
+        const dpe = d.dpe_ademe;
+        document.getElementById("dpe-passoire-badge").textContent = dpe.passoireRatio !== null ? `${dpe.passoireRatio}% Passoires` : "0 DPE";
+        document.getElementById("dpe-median-label").innerHTML = `Médiane : <strong class="text-amber-300">${dpe.median}</strong> (${dpe.total} DPE)`;
+
+        const distBar = document.getElementById("dpe-distribution-bar");
+        if (dpe.total === 0) {
+          distBar.innerHTML = `<div class="w-full bg-slate-900 text-slate-500 flex items-center justify-center text-xs">Aucun DPE ADEME à proximité</div>`;
+        } else {
+          distBar.innerHTML = ["A","B","C","D","E","F","G"].map(l => {
+            const count = dpe.counts[l] || 0;
+            const pct = Math.round((count / dpe.total) * 100);
+            if (pct === 0) return "";
+            return `<div style="width:${pct}%" class="dpe-${l} flex items-center justify-center" title="${l}: ${count}">${pct >= 10 ? l : ""}</div>`;
+          }).join("");
+        }
+
+        document.getElementById("dpe-list").innerHTML = dpe.items.length === 0 ? `<div class="p-3 text-xs text-slate-400 text-center">Aucun diagnostic DPE publié.</div>` : dpe.items.map(i => `
+          <div class="flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded font-mono font-bold text-xs flex items-center justify-center dpe-${i.etiquette}">${i.etiquette}</span>
+              <div><div class="text-white font-medium">${i.surface} m² • ${i.conso} kWh/m²</div><div class="text-[10px] text-slate-400">📍 ${i.adresseBrute}</div></div>
+            </div>
+            <span class="font-mono text-[10px] text-slate-400">${i.date}</span>
+          </div>
+        `).join("");
+
+        // Pilier 4 : DansMaRue
+        const dmr = d.environnement_rue;
+        document.getElementById("dmr-count-badge").textContent = dmr.deptCode === "75" ? `${dmr.total} signalement(s)` : "Paris 75 uniq.";
+        document.getElementById("dmr-list").innerHTML = dmr.noticeHorsParis ? `<div class="p-3 text-xs text-slate-300">${dmr.noticeHorsParis}</div>` : (dmr.items.length === 0 ? `<div class="p-3 text-xs text-emerald-300 text-center">Aucun signalement DansMaRue.</div>` : dmr.items.map(i => `
+          <div onclick="window.perronFocusDmr(${i.lat}, ${i.lon})" class="cursor-pointer bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg p-2 text-xs transition">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-200">${i.type} — ${i.sousType}</span>
+              <span class="font-mono text-[10px] text-slate-400">${i.date}</span>
+            </div>
+            <div class="text-[10px] text-amber-300 font-mono mt-0.5">📍 ${i.adresse}</div>
+          </div>
+        `).join(""));
+      }
+
+      window.perronFocusDmr = function (lat, lon) {
+        if (!isNaN(lat) && !isNaN(lon)) {
+          map.flyTo([lat, lon], 19, { duration: 0.6 });
+        }
+      };
+
+      // Initialisations UI & Événements
+      updateLegendAndPalmaresUI();
+      loadOfficialZonePolygons();
+      refreshAmbientMapPoints();
+      selectAndInspectParcel(INITIAL_PARCEL_LATLNG[1], INITIAL_PARCEL_LATLNG[0], null, true);
+
+      // Raccourcis d'exploration en haut (75 Vendôme, Marais, 92 Asnières, 93 St-Ouen, 94 Vincennes)
+      document.querySelectorAll(".jump-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const raw = btn.getAttribute("data-jump") || "";
+          const parts = raw.split(",");
+          const lng = parseFloat(parts[0]);
+          const lat = parseFloat(parts[1]);
+          const zoom = parseInt(parts[2] || "17", 10);
+          if (!isNaN(lng) && !isNaN(lat)) {
+            map.flyTo([lat, lng], zoom, { duration: 0.9 });
+            selectAndInspectParcel(lng, lat);
+          }
+        });
+      });
+
+      // Recherche d'adresse BAN (Base Adresse Nationale)
+      const searchInput = document.getElementById("address-search");
+      const searchResults = document.getElementById("search-results");
+      const clearSearchBtn = document.getElementById("clear-search");
+      let searchDebounce = null;
+
+      searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim();
+        clearSearchBtn.classList.toggle("hidden", q.length === 0);
+        clearTimeout(searchDebounce);
+        if (q.length < 3) {
+          searchResults.classList.add("hidden");
+          return;
+        }
+        searchDebounce = setTimeout(async () => {
+          try {
+            const res = await fetchWithTimeout(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=6&lat=48.86&lon=2.34`, 2500);
+            if (!res.ok) return;
+            const data = await res.json();
+            const features = data.features || [];
+            if (features.length === 0) {
+              searchResults.innerHTML = `<div class="p-3 text-xs text-slate-400">Aucune adresse trouvée.</div>`;
+            } else {
+              searchResults.innerHTML = features.map((f, idx) => {
+                const p = f.properties;
+                const [lon, lat] = f.geometry.coordinates;
+                return `
+                  <button type="button" data-idx="${idx}" data-lon="${lon}" data-lat="${lat}" class="ban-result-item w-full text-left px-3.5 py-2.5 hover:bg-slate-800/90 transition flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="text-xs font-medium text-white truncate">${p.name}</div>
+                      <div class="text-[10px] text-slate-400 font-mono">${p.postcode} ${p.city}</div>
+                    </div>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 shrink-0">${(p.postcode || "").substring(0, 2)}</span>
+                  </button>
+                `;
+              }).join("");
+
+              searchResults.querySelectorAll(".ban-result-item").forEach((itemBtn, idx) => {
+                itemBtn.addEventListener("click", () => {
+                  const f = features[idx];
+                  const p = f.properties;
+                  const [lon, lat] = f.geometry.coordinates;
+                  searchInput.value = p.label;
+                  searchResults.classList.add("hidden");
+                  map.flyTo([lat, lon], 18, { duration: 0.9 });
+                  selectAndInspectParcel(lon, lat, {
+                    name: p.name || p.label,
+                    postcode: p.postcode,
+                    city: p.city,
+                    citycode: p.citycode,
+                    street: p.street || p.name,
+                    housenumber: p.housenumber || "",
+                    id_ban: p.id
+                  });
+                });
+              });
+            }
+            searchResults.classList.remove("hidden");
+          } catch (e) {}
+        }, 220);
+      });
+
+      clearSearchBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        clearSearchBtn.classList.add("hidden");
+        searchResults.classList.add("hidden");
+      });
+
+      // Simulateur de loyer
+      document.getElementById("sim-surface-slider").addEventListener("input", updateRentSimulatorUI);
+
+      // Bascule Fond Orthophoto / Plan Sombre et Calques
+      const btnOrtho = document.getElementById("btn-style-ortho");
+      const btnDark = document.getElementById("btn-style-dark");
+      btnOrtho.addEventListener("click", () => {
+        if (map.hasLayer(darkPlanLayer)) map.removeLayer(darkPlanLayer);
+        if (!map.hasLayer(orthoLayer)) orthoLayer.addTo(map);
+        btnOrtho.className = "px-2 py-1 rounded text-xs font-medium bg-amber-500 text-slate-950 font-semibold transition";
+        btnDark.className = "px-2 py-1 rounded text-xs font-medium text-slate-300 hover:text-white transition";
+      });
+      btnDark.addEventListener("click", () => {
+        if (map.hasLayer(orthoLayer)) map.removeLayer(orthoLayer);
+        if (!map.hasLayer(darkPlanLayer)) darkPlanLayer.addTo(map);
+        btnDark.className = "px-2 py-1 rounded text-xs font-medium bg-amber-500 text-slate-950 font-semibold transition";
+        btnOrtho.className = "px-2 py-1 rounded text-xs font-medium text-slate-300 hover:text-white transition";
+      });
+
+      document.getElementById("toggle-zones").addEventListener("change", renderChoroplethZones);
+      document.getElementById("toggle-parcelles").addEventListener("change", syncCadastreVisibility);
+      document.getElementById("toggle-batiments").addEventListener("change", refreshAmbientMapPoints);
+      document.getElementById("toggle-dansmarue").addEventListener("change", (e) => {
+        if (!e.target.checked) dansMaRueGroup.clearLayers();
+        else if (currentDossier) fetchRealDansMaRue(currentDossier.coordinates.lng, currentDossier.coordinates.lat, currentDossier.parcelle.departement);
+      });
+
+      // Formulaire Cahier de Perron
+      const reviewForm = document.getElementById("review-form");
+      document.getElementById("btn-toggle-review-form").addEventListener("click", () => reviewForm.classList.toggle("hidden"));
+      document.getElementById("btn-cancel-review").addEventListener("click", () => reviewForm.classList.add("hidden"));
+      reviewForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!currentDossier) return;
+        const pid = currentDossier.parcelle.id;
+        const note = {
+          role: document.getElementById("review-role").value,
+          tag: document.getElementById("review-tag").value,
+          text: document.getElementById("review-text").value.trim()
+        };
+        if (!note.text) return;
+        const list = inMemoryReviewsStore.get(pid) || [];
+        list.unshift(note);
+        inMemoryReviewsStore.set(pid, list);
+        currentDossier.copropriete_rnic.reviews = list;
+        document.getElementById("review-text").value = "";
+        reviewForm.classList.add("hidden");
+        renderDossierUI(currentDossier);
+      });
+
+      // Export JSON
+      document.getElementById("btn-export-json").addEventListener("click", () => {
+        if (!currentDossier) return;
+        const blob = new Blob([JSON.stringify(currentDossier, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `perron-${currentDossier.parcelle.id || "dossier"}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      document.querySelectorAll(".metric-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeChoroplethMetric = btn.getAttribute("data-metric");
+          document.querySelectorAll(".metric-btn").forEach(b => b.className = "metric-btn px-2 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition text-center");
+          btn.className = "metric-btn px-2 py-1.5 rounded-lg font-medium bg-amber-500 text-slate-950 font-semibold transition text-center";
+          updateLegendAndPalmaresUI();
+          renderChoroplethZones();
+          if (map.getZoom() >= 15) map.flyTo([48.862, 2.345], 12, { duration: 0.9 });
+        });
+      });
+
+      document.querySelectorAll(".dept-filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeDeptFilter = btn.getAttribute("data-dept-filter") || "ALL";
+          document.querySelectorAll(".dept-filter-btn").forEach(b => {
+            b.className = "dept-filter-btn px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white transition";
+          });
+          btn.className = "dept-filter-btn px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-bold transition";
+          updateLegendAndPalmaresUI();
+          renderChoroplethZones();
+        });
+      });
+
+      document.getElementById("btn-toggle-palmares").addEventListener("click", () => document.getElementById("palmares-panel").classList.toggle("hidden"));
+      document.getElementById("btn-expand-choropleth").addEventListener("click", () => { userForcedChoroplethOpen = true; setChoroplethCollapsed(false); if (map.getZoom() >= 15) map.flyTo([48.862, 2.345], 12, { duration: 0.9 }); });
+      document.getElementById("btn-minimize-choropleth").addEventListener("click", () => { userForcedChoroplethOpen = false; setChoroplethCollapsed(true); });
+
+      document.getElementById("btn-toggle-layers-body").addEventListener("click", () => {
+        const body = document.getElementById("layers-panel-body");
+        const chevron = document.getElementById("layers-chevron");
+        if (!body) return;
+        const isHidden = body.classList.toggle("hidden");
+        if (chevron) chevron.style.transform = isHidden ? "rotate(-90deg)" : "rotate(0deg)";
+      });
+
+      document.getElementById("btn-zoom-in").addEventListener("click", () => map.zoomIn());
+      document.getElementById("btn-zoom-out").addEventListener("click", () => map.zoomOut());
+
+      const archModal = document.getElementById("architecture-modal");
+      document.getElementById("btn-architecture-desktop").addEventListener("click", () => archModal.classList.remove("hidden"));
+      document.getElementById("btn-architecture-modal").addEventListener("click", () => archModal.classList.remove("hidden"));
+      document.getElementById("close-architecture-modal").addEventListener("click", () => archModal.classList.add("hidden"));
+    })();
+  </script>
+</body>
+</html>
