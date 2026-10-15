@@ -1,9 +1,9 @@
 /**
- * PERRON — Module d'enrichissement v6 (Stabilité renforcée, Arrêts IDFM optionnels, Écoles & Vélib')
+ * PERRON — Module d'enrichissement v6.1 (Base v6 PRD intacte + Transports IDFM/OSM : Métro, RER, Transilien, Tram, Bus)
  */
 
 (function () {
-  console.log("%c✅ [PERRON] Module d'enrichissement v6 actif", "color:#10b981;font-weight:bold;");
+  console.log("%c✅ [PERRON] Module d'enrichissement v6.1 actif (avec Transports)", "color:#10b981;font-weight:bold;");
 
   let lastRunSignature = "";
   let currentAbort = null;
@@ -114,11 +114,22 @@
       const wrap = document.createElement("div");
       wrap.className = "space-y-3 mt-3";
       wrap.innerHTML =
+        '<div id="slot-lot4-transports" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot3-velib" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-ecoles" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot2-fraicheur" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-chantiers" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
       tabEnv.appendChild(wrap);
+    } else if (tabEnv && !document.getElementById("slot-lot4-transports")) {
+      const velibEl = document.getElementById("slot-lot3-velib");
+      const transBox = document.createElement("div");
+      transBox.id = "slot-lot4-transports";
+      transBox.className = "p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90";
+      if (velibEl && velibEl.parentNode) {
+        velibEl.parentNode.insertBefore(transBox, velibEl);
+      } else {
+        tabEnv.appendChild(transBox);
+      }
     }
   }
 
@@ -374,6 +385,146 @@
     } catch (_) {}
   }
 
+  // 8. TRANSPORTS EN COMMUN : MÉTRO, RER, TRANSILIEN, TRAM & BUS (IDFM + FALLBACK OVERPASS OSM)
+  async function loadTransportsAll(lat, lon, signal) {
+    const elTrans = document.getElementById("slot-lot4-transports");
+    if (!elTrans) return;
+    elTrans.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🚇 Recherche Métro, RER, Transilien, Tram & Bus (450m)...</div>';
+
+    // Classification visuelle par mode de transport
+    function classifyMode(rawMode, lineName) {
+      const m = String(rawMode || "").toLowerCase();
+      const l = String(lineName || "").toUpperCase();
+      if (m.includes("metro") || m.includes("métro") || m === "subway") {
+        return { emoji: "🚇", label: "Métro", color: "#f59e0b", badgeCls: "bg-amber-500/20 text-amber-300 border-amber-500/30", priority: 1 };
+      }
+      if (m.includes("rer") || /^RER\s*[A-E]$/.test(l) || ["A", "B", "C", "D", "E"].includes(l)) {
+        return { emoji: "🚆", label: "RER", color: "#818cf8", badgeCls: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30", priority: 1 };
+      }
+      if (m.includes("rail") || m.includes("train") || m.includes("transilien") || ["H", "J", "K", "L", "N", "P", "R", "U", "V"].includes(l)) {
+        return { emoji: "🚆", label: "Train", color: "#a855f7", badgeCls: "bg-purple-500/20 text-purple-300 border-purple-500/30", priority: 1 };
+      }
+      if (m.includes("tram") || /^T\d+/i.test(l)) {
+        return { emoji: "🚊", label: "Tram", color: "#34d399", badgeCls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", priority: 2 };
+      }
+      return { emoji: "🚏", label: "Bus", color: "#38bdf8", badgeCls: "bg-sky-500/20 text-sky-300 border-sky-500/30", priority: 3 };
+    }
+
+    try {
+      // Source 1 : API Officielle Île-de-France Mobilités (arrets-lignes) avec le vrai champ 'pointgeo' et l'unité '450m'
+      const where = encodeURIComponent("within_distance(pointgeo, geom'POINT(" + lon + " " + lat + ")', 450m)");
+      const idfmUrl = "https://data.iledefrance-mobilites.fr/api/explore/v2.1/catalog/datasets/arrets-lignes/records?where=" + where + "&limit=60";
+
+      let groupedStops = new Map();
+
+      try {
+        const data = await fetchJsonSafe(idfmUrl, 3800, signal);
+        const rows = (data && data.results) ? data.results : [];
+
+        rows.forEach(r => {
+          const stopName = (r.stop_name || r.nom_arret || "").trim();
+          if (!stopName) return;
+          const lineShort = (r.shortname || r.route_long_name || "").trim();
+          const modeInfo = classifyMode(r.mode, lineShort);
+          const key = modeInfo.label + "_" + stopName.toLowerCase();
+
+          if (!groupedStops.has(key)) {
+            groupedStops.set(key, {
+              name: stopName,
+              modeInfo: modeInfo,
+              lines: new Set(),
+              coords: r.pointgeo || [r.stop_lat, r.stop_lon],
+              operator: r.operatorname || "IDFM"
+            });
+          }
+          if (lineShort) groupedStops.get(key).lines.add(lineShort);
+        });
+      } catch (_) {
+        // Fallback automatique Source 2 : Overpass API OpenStreetMap si IDFM ne répond pas
+        const overpassQuery = '[out:json][timeout:3];(node["highway"="bus_stop"](around:380,' + lat + ',' + lon + ');node["railway"~"station|subway_entrance|tram_stop"](around:500,' + lat + ',' + lon + '););out body 25;';
+        const osmUrl = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+        const osmData = await fetchJsonSafe(osmUrl, 3800, signal);
+        const elements = (osmData && osmData.elements) ? osmData.elements : [];
+
+        elements.forEach(el => {
+          const tags = el.tags || {};
+          const stopName = tags.name || "";
+          if (!stopName) return;
+          const rawMode = tags.station || tags.railway || tags.highway || "bus";
+          const lineRef = tags.route_ref || tags.ref || tags.line || "";
+          const modeInfo = classifyMode(rawMode, lineRef);
+          const key = modeInfo.label + "_" + stopName.toLowerCase();
+
+          if (!groupedStops.has(key)) {
+            groupedStops.set(key, {
+              name: stopName,
+              modeInfo: modeInfo,
+              lines: new Set(),
+              coords: { lat: el.lat, lon: el.lon },
+              operator: tags.operator || "RATP / SNCF"
+            });
+          }
+          if (lineRef) {
+            lineRef.split(/[;,]/).forEach(l => { if (l.trim()) groupedStops.get(key).lines.add(l.trim()); });
+          }
+        });
+      }
+
+      const stopsList = Array.from(groupedStops.values());
+
+      if (stopsList.length === 0) {
+        elTrans.innerHTML =
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-xs font-semibold text-white">🚇 Transports & Bus (450m)</span>' +
+            '<span class="text-[10px] font-mono text-slate-400">Aucun arrêt < 450m</span>' +
+          '</div>';
+        return;
+      }
+
+      // Trier : Métro / RER / Train d'abord, puis Tram, puis Bus (et par nombre de lignes)
+      stopsList.sort((a, b) => {
+        if (a.modeInfo.priority !== b.modeInfo.priority) return a.modeInfo.priority - b.modeInfo.priority;
+        return b.lines.size - a.lines.size;
+      });
+
+      const topStops = stopsList.slice(0, 6);
+
+      topStops.forEach(st => {
+        const linesStr = Array.from(st.lines).slice(0, 6).join(", ");
+        const subText = st.modeInfo.label + (linesStr ? " • Ligne(s) : " + linesStr : "") + " (" + st.operator + ")";
+        addMapPin(st.coords, st.modeInfo.emoji, st.modeInfo.color, st.name, subText);
+      });
+
+      const rowsHtml = topStops.map(st => {
+        const linesArr = Array.from(st.lines).slice(0, 5);
+        const linesBadge = linesArr.length > 0
+          ? st.modeInfo.label + " " + linesArr.join(" • ")
+          : st.modeInfo.label;
+
+        return '<div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
+          '<div class="truncate pr-2">' +
+            '<span class="text-white font-medium">' + st.modeInfo.emoji + ' ' + st.name + '</span>' +
+          '</div>' +
+          '<span class="font-mono text-[10px] shrink-0 px-1.5 py-0.5 rounded border ' + st.modeInfo.badgeCls + '">' + linesBadge + '</span>' +
+        '</div>';
+      }).join("");
+
+      elTrans.innerHTML =
+        '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-xs font-semibold text-white">🚇 Métro, RER, Train & Bus (450m)</span>' +
+          '<span class="text-[10px] font-mono text-amber-300">' + stopsList.length + ' arrêt(s)</span>' +
+        '</div>' +
+        '<div class="space-y-1.5">' + rowsHtml + '</div>';
+    } catch (e) {
+      if (signal.aborted) return;
+      elTrans.innerHTML =
+        '<div class="flex items-center justify-between">' +
+          '<span class="text-xs font-semibold text-white">🚇 Transports en commun</span>' +
+          '<span class="text-[10px] font-mono text-slate-400">Données IDFM momentanément indisponibles</span>' +
+        '</div>';
+    }
+  }
+
   // 9. ÉCOLES (MATERNELLE, PRIMAIRE, COLLÈGE, LYCÉE - PUBLICS & PRIVÉS)
   async function loadEcolesAll(lat, lon, signal) {
     const elEcoles = document.getElementById("slot-lot1-ecoles");
@@ -486,6 +637,7 @@
       loadUrbanisme(lat, lon, isParis, sig),
       loadAntennes(lat, lon, sig),
       loadChaleurUrbaine(lat, lon, sig),
+      loadTransportsAll(lat, lon, sig),
       loadVelibLive(lat, lon, sig),
       loadEcolesAll(lat, lon, sig),
       loadEnvExtras(lat, lon, isParis)
