@@ -1622,59 +1622,73 @@
       // 7. MOTEUR DPE ADEME, DANSMARUE & RNIC
       // ============================================================================
       async function fetchRealADEME_DPE(lat, lon, banId, fullAddress, postcode) {
-        const urls = [];
-        if (banId) {
-          urls.push(`https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?qs=identifiant_ban:"${encodeURIComponent(banId)}"&size=60`);
-        }
-        urls.push(`https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?geo_distance=${lon},${lat},120&size=60`);
-        if (fullAddress && postcode) {
-          const q = encodeURIComponent(`${fullAddress} ${postcode}`);
-          urls.push(`https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?q=${q}&size=45`);
-        }
-
         const counts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0 };
-        const records = [];
-        let scope = "Rayon 120m autour de la parcelle";
+        const cleanTarget = String(fullAddress || "").trim().toLowerCase();
+        // Extrait le numéro de rue éventuel (ex: "12" dans "12 Rue de la Paix")
+        const numMatch = cleanTarget.match(/^(\d+\s*(?:bis|ter|quater|[a-z])?)\b/i);
+        const targetNum = numMatch ? numMatch[1].replace(/\s+/g, "") : null;
 
-        const responses = await Promise.allSettled(urls.map(u => fetchWithTimeout(u, 3200)));
-
-        for (let i = 0; i < responses.length; i++) {
-          const r = responses[i];
-          if (r.status === "fulfilled" && r.value.ok) {
-            try {
-              const data = await r.value.json();
-              const lines = data.results || [];
-              const parsed = [];
-              const localCounts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0 };
-
-              lines.forEach(raw => {
-                const item = extractAdemeDpeFields(raw);
-                if (item.grade) {
-                  localCounts[item.grade]++;
-                  parsed.push({
-                    grade: item.grade,
-                    conso: item.conso || null,
-                    surface: item.surf || null,
-                    date: item.rawDate || "—",
-                    address: item.addr || fullAddress || "Adresse vérifiée"
-                  });
-                }
-              });
-
-              if (parsed.length > 0) {
-                parsed.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-                if (i === 0 && banId) scope = "Immeuble exact (Identifiant BAN)";
-                else if (i === 1) scope = "Parcelle & abords immédiats (120m)";
-                else scope = "Secteur de la voie";
-                return { counts: localCounts, records: parsed.slice(0, 25), total: parsed.length, scope };
-              }
-            } catch (_) {}
-          }
+        const queries = [];
+        if (banId) {
+          queries.push({
+            url: `https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?qs=identifiant_ban:"${encodeURIComponent(banId)}"&size=100`,
+            strictAddressFilter: false,
+            scope: "Immeuble exact (Identifiant BAN)"
+          });
         }
 
-        return { counts, records, total: 0, scope: "Aucun DPE récent sur ce point" };
-      }
+        // Fallback micro-parcelle (25m) filtré sur la même adresse pour capter les DPE sans identifiant_ban
+        queries.push({
+          url: `https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?geo_distance=${lon},${lat},25&size=80`,
+          strictAddressFilter: true,
+          scope: "Parcelle exacte (Adresse vérifiée)"
+        });
 
+        for (const q of queries) {
+          try {
+            const res = await fetchWithTimeout(q.url, 3200);
+            if (!res.ok) continue;
+            const data = await res.json();
+            const lines = data.results || [];
+            const parsed = [];
+            const localCounts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0 };
+
+            lines.forEach(raw => {
+              const item = extractAdemeDpeFields(raw);
+              if (!item.grade) return;
+
+              if (q.strictAddressFilter && cleanTarget) {
+                const candidateAddr = String(item.addr || "").trim().toLowerCase();
+                // Si on connaît le numéro de rue de la parcelle, on exige le même numéro
+                if (targetNum) {
+                  const candNumMatch = candidateAddr.match(/^(\d+\s*(?:bis|ter|quater|[a-z])?)\b/i);
+                  const candNum = candNumMatch ? candNumMatch[1].replace(/\s+/g, "") : "";
+                  if (candNum !== targetNum) return;
+                } else if (candidateAddr && !candidateAddr.includes(cleanTarget)) {
+                  return;
+                }
+              }
+
+              localCounts[item.grade]++;
+              parsed.push({
+                grade: item.grade,
+                conso: item.conso || null,
+                surface: item.surf || null,
+                date: item.rawDate || "—",
+                address: item.addr || fullAddress || "Logement de la parcelle"
+              });
+            });
+
+            if (parsed.length > 0) {
+              parsed.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+              return { counts: localCounts, records: parsed.slice(0, 30), total: parsed.length, scope: q.scope };
+            }
+          } catch (_) {}
+        }
+
+        return { counts, records: [], total: 0, scope: "Aucun DPE enregistré sur cette parcelle" };
+      }
+    
       async function fetchRealDansMaRue(lat, lon, isParis) {
         if (!isParis) {
           return { isSupported: false, total: 0, categories: {}, records: [] };
