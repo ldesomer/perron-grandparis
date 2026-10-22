@@ -505,7 +505,7 @@
             <span class="w-5 h-5 rounded-md bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs flex items-center justify-center font-bold">2</span>
             <h2 class="font-display font-bold text-sm uppercase tracking-wider text-white">Vie de l'Immeuble & Cadastre</h2>
           </div>
-          <span id="rnic-source-badge" class="text-[10px] font-mono text-slate-400">RNIC / Cadastre IGN</span>
+          <span id="rnic-source-badge" class="text-[10px] font-mono text-slate-400">Cadastre IGN</span>
         </div>
 
         <div class="grid grid-cols-3 gap-2">
@@ -515,9 +515,9 @@
             <span id="copro-lots-detail" class="text-[10px] font-mono text-slate-400">N° 0018</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
-            <span class="text-[10px] text-slate-400 block">Registre Copro</span>
-            <span id="copro-syndic-type" class="font-mono font-bold text-sm text-emerald-400 mt-0.5 block">Recherche...</span>
-            <span id="copro-immat" class="text-[10px] font-mono text-slate-400">RNIC National</span>
+            <span class="text-[10px] text-slate-400 block">Statut Cadastral</span>
+            <span id="copro-syndic-type" class="font-mono font-bold text-sm text-emerald-400 mt-0.5 block">Bâti vérifié</span>
+            <span id="copro-immat" class="text-[10px] font-mono text-slate-400">Parcelle active</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
             <span class="text-[10px] text-slate-400 block">Emprise au sol</span>
@@ -645,7 +645,7 @@
           <p class="font-semibold text-emerald-300 mb-1">2. Croisement en Temps Réel à la Parcelle</p>
           <ul class="list-disc pl-4 space-y-1 text-slate-400">
             <li><strong class="text-white">Cadastre & Emprise :</strong> Flux WMTS IGN Géoplateforme (<code class="text-amber-300">CADASTRALPARCELS.PARCELLAIRE_EXPRESS</code>) et API Carto Cadastre IGN.</li>
-            <li><strong class="text-white">Mutations DVF (2025 – S1 2026) :</strong> Base officielle des Demandes de Valeurs Foncières géolocalisées (DGFiP / Etalab) regroupée par acte notarié et triée chronologiquement.</li>
+            <li><strong class="text-white">Mutations DVF (2025 – S1 2026) :</strong> Ressource officielle DGFiP S1 2026 (<code class="text-amber-300">432a32f6-578a-4e00-96c3-332d6f123f5b</code> via API Tabulaire data.gouv.fr) et Geo-DVF 2025, regroupées par acte notarié et triées chronologiquement.</li>
             <li><strong class="text-white">DPE ADEME :</strong> Base nationale <code class="text-amber-300">dpe03existant</code> filtrée strictement sur l'identifiant BAN et l'adresse de la parcelle.</li>
             <li><strong class="text-white">Voirie & Propreté :</strong> API OpenData Paris <code class="text-amber-300">dans-ma-rue</code> sur les 4 derniers mois dans un rayon de 85 m.</li>
           </ul>
@@ -767,19 +767,16 @@
       document.getElementById("btn-zoom-in").addEventListener("click", () => map.zoomIn());
       document.getElementById("btn-zoom-out").addEventListener("click", () => map.zoomOut());
 
-      // Fond 1 : Orthophoto IGN Géoplateforme pure (sans voile gris)
       const orthoLayer = L.tileLayer(
         "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg",
         { maxZoom: 20, attribution: "© IGN Géoplateforme" }
       ).addTo(map);
 
-      // Fond 2 : Plan IGN V2
       const darkPlanLayer = L.tileLayer(
         "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png",
         { maxZoom: 19, opacity: 0.9, attribution: "© IGN Plan V2" }
       );
 
-      // Calque Parcellaire Express Officiel IGN (STYLE=normal sans les ronds orange d'arpentage !)
       const cadastreParcelsLayer = L.tileLayer(
         "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png",
         { minZoom: 16, maxZoom: 20, opacity: 0.72, attribution: "© Cadastre DGFiP / IGN" }
@@ -1208,7 +1205,6 @@
         return { grade, conso, surf, rawDate, addr, lat, lon };
       }
 
-      // Désactivation complète des points DPE sur la carte pour préserver la lisibilité
       async function refreshAmbientMapPoints() {
         syncCadastreVisibility();
         ambientDpeGroup.clearLayers();
@@ -1295,70 +1291,52 @@
       }
 
       // ============================================================================
-      // MOTEUR DVF — MILLÉSIMES 2026 & 2025 AVEC LOGS DE CONTRÔLE CONSOLE & TRI DATE PUR
+      // MOTEUR DVF — RESSOURCE OFFICIELLE S1 2026 (432a32f6-578a-4e00-96c3-332d6f123f5b) + CSV 2025
       // ============================================================================
+      const DVF_S1_2026_RESOURCE_ID = "432a32f6-578a-4e00-96c3-332d6f123f5b";
       const MIN_DVF_TIMESTAMP_2025 = Date.UTC(2025, 0, 1);
       const MIN_DVF_TIMESTAMP_2026 = Date.UTC(2026, 0, 1);
       const communeGeoDvfCache = new Map();
-      let cachedDvf2026Resources = null;
 
-      async function discoverDvf2026Resources() {
-        if (cachedDvf2026Resources) return cachedDvf2026Resources;
-        const foundIds = [];
-        try {
-          const urls = [
-            "https://www.data.gouv.fr/api/1/datasets/demandes-de-valeurs-foncieres-geolocalisees/",
-            "https://www.data.gouv.fr/api/1/datasets/demandes-de-valeurs-foncieres/"
-          ];
-          const responses = await Promise.allSettled(urls.map(u => fetchWithTimeout(u, 3500)));
-          for (const r of responses) {
-            if (r.status === "fulfilled" && r.value.ok) {
-              const ds = await r.value.json();
-              (ds.resources || []).forEach(res => {
-                const title = String(res.title || "").toLowerCase();
-                const url = String(res.url || "").toLowerCase();
-                if (title.includes("2026") || url.includes("2026")) {
-                  foundIds.push({ id: res.id, title: res.title, url: res.url });
-                }
-              });
-            }
-          }
-        } catch (_) {}
-        cachedDvf2026Resources = foundIds;
-        console.log("🔎 [DVF 2026] Ressources détectées sur data.gouv.fr :", foundIds);
-        return foundIds;
+      // Reconstructeur d'identifiant de parcelle à 14 caractères depuis les colonnes DGFiP brutes
+      function buildDgfipParcelId(dept, comm, prefixe, section, noPlan) {
+        if (!dept || !comm || !section || !noPlan) return "";
+        const d = String(dept).trim().padStart(2, "0");
+        const c = String(comm).trim().padStart(3, "0");
+        const p = String(prefixe || "000").trim().padStart(3, "0");
+        const s = String(section).trim().toUpperCase().padStart(2, "0");
+        const n = String(noPlan).trim().padStart(4, "0");
+        return `${d}${c}${p}${s}${n}`;
       }
 
-      async function fetchTabularDvf2026(codeInsee) {
-        const resources = await discoverDvf2026Resources();
-        if (!resources.length || !codeInsee) return [];
-
+      // Interrogation directe de la ressource officielle S1 2026 (432a32f6-578a-4e00-96c3-332d6f123f5b) via l'API Tabulaire data.gouv.fr
+      async function fetchOfficialDvfS12026(codeInsee) {
+        if (!codeInsee) return [];
         const dept = codeInsee.slice(0, 2);
-        const commShort = codeInsee.slice(2); // ex: "101" pour 75101, "004" pour 92004
-        const results = [];
+        const comm3 = codeInsee.slice(2); // ex: "101" ou "004"
+        const commInt = String(parseInt(comm3, 10)); // ex: "101" ou "4"
 
-        for (const resInfo of resources.slice(0, 3)) {
-          // Essai 1 : Format Geo-DVF (code_commune = "75101")
-          // Essai 2 : Format DGFiP brut (Code departement = "75" & Code commune = "101")
-          const candidateUrls = [
-            `https://tabular-api.data.gouv.fr/api/resources/${resInfo.id}/data/?code_commune__exact=${codeInsee}&date_mutation__sort=desc&page_size=100`,
-            `https://tabular-api.data.gouv.fr/api/resources/${resInfo.id}/data/?Code%20departement__exact=${dept}&Code%20commune__exact=${ parseInt(commShort, 10) }&page_size=100`
-          ];
+        const candidateUrls = [
+          // 1. Si la ressource 432a32f6-578a-4e00-96c3-332d6f123f5b utilise les colonnes DGFiP ("Code departement" / "Code commune")
+          `https://tabular-api.data.gouv.fr/api/resources/${DVF_S1_2026_RESOURCE_ID}/data/?Code%20departement__exact=${dept}&Code%20commune__exact=${comm3}&page_size=200`,
+          `https://tabular-api.data.gouv.fr/api/resources/${DVF_S1_2026_RESOURCE_ID}/data/?Code%20departement__exact=${dept}&Code%20commune__exact=${commInt}&page_size=200`,
+          // 2. Si la ressource utilise la colonne consolidée "code_commune"
+          `https://tabular-api.data.gouv.fr/api/resources/${DVF_S1_2026_RESOURCE_ID}/data/?code_commune__exact=${codeInsee}&page_size=200`
+        ];
 
-          for (const u of candidateUrls) {
-            try {
-              const res = await fetchWithTimeout(u, 4000);
-              if (res.ok) {
-                const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                  results.push(...json.data);
-                  break;
-                }
+        for (const url of candidateUrls) {
+          try {
+            const res = await fetchWithTimeout(url, 5000);
+            if (res.ok) {
+              const json = await res.json();
+              if (json && Array.isArray(json.data) && json.data.length > 0) {
+                console.log(`%c✅ [DVF S1 2026] ${json.data.length} lignes récupérées depuis la ressource officielle ${DVF_S1_2026_RESOURCE_ID}`, "color:#10b981;font-weight:bold;");
+                return json.data;
               }
-            } catch (_) {}
-          }
+            }
+          } catch (_) {}
         }
-        return results;
+        return [];
       }
 
       async function loadCommuneDvf2025And2026(codeInsee) {
@@ -1378,11 +1356,11 @@
           const ts = parseDateToTimestamp(rawDate);
           if (ts < MIN_DVF_TIMESTAMP_2025) return;
 
-          const numVal = typeof val === "string" ? parseFloat(val.replace(",", ".")) : Number(val);
-          const numSurf = typeof surf === "string" ? parseFloat(surf.replace(",", ".")) : Number(surf);
+          const numVal = typeof val === "string" ? parseFloat(val.replace(/\s/g, "").replace(",", ".")) : Number(val);
+          const numSurf = typeof surf === "string" ? parseFloat(surf.replace(/\s/g, "").replace(",", ".")) : Number(surf);
           if (!numVal || numVal < 30000 || !numSurf || numSurf < 9) return;
 
-          const mutKey = idMut || `${rawDate}_${Math.round(numVal)}_${parcelId}`;
+          const mutKey = idMut || `${rawDate}_${Math.round(numVal)}_${parcelId || addr}`;
           const lotKey = `${mutKey}_${dispo || "1"}_${parcelId}_${cleanType}_${numSurf}_${pieces}`;
           if (seenLotKeys.has(lotKey)) return;
           seenLotKeys.add(lotKey);
@@ -1408,28 +1386,39 @@
           }
         }
 
-        // Téléchargement CSV 2025 (sur S3 OVH via proxy Netlify) + Recherche Tabulaire 2026 en parallèle
+        // Téléchargement parallèle : Ressource officielle S1 2026 (432a32f6...) + CSV 2025 S3 OVH (sans appeler /csv/2026/ qui faisait 404)
         const csvUrl2025 = `/api-dvf/latest/csv/2025/communes/${dept}/${codeInsee}.csv`;
 
-        const [csv2025Res, tab2026Rows] = await Promise.all([
-          fetchWithTimeout(csvUrl2025, 6500).then(r => (r.ok ? r.text() : null)).catch(() => null),
-          fetchTabularDvf2026(codeInsee)
+        const [s12026Rows, csv2025Text] = await Promise.all([
+          fetchOfficialDvfS12026(codeInsee),
+          fetchWithTimeout(csvUrl2025, 6500).then(r => (r.ok ? r.text() : null)).catch(() => null)
         ]);
 
-        // 1. Ingestion des lignes 2026 issues de l'API Tabulaire data.gouv.fr
-        if (Array.isArray(tab2026Rows) && tab2026Rows.length > 0) {
-          tab2026Rows.forEach(r => {
+        // 1. Ingestion des lignes S1 2026 issues de la ressource 432a32f6-578a-4e00-96c3-332d6f123f5b
+        if (Array.isArray(s12026Rows) && s12026Rows.length > 0) {
+          s12026Rows.forEach(r => {
             const rawDate = r.date_mutation || r["Date mutation"] || "";
             const nature = r.nature_mutation || r["Nature mutation"] || "";
             const typeLocal = r.type_local || r["Type local"] || "";
             const val = r.valeur_fonciere ?? r["Valeur fonciere"] ?? 0;
             const surf = r.surface_reelle_bati ?? r["Surface reelle bati"] ?? 0;
             const pieces = r.nombre_pieces_principales ?? r["Nombre pieces principales"] ?? 0;
-            const parcelId = r.id_parcelle || "";
+
+            const parcelId = r.id_parcelle || buildDgfipParcelId(
+              r["Code departement"] || dept,
+              r["Code commune"] || codeInsee.slice(2),
+              r["Prefixe de section"],
+              r["Section"],
+              r["No plan"]
+            );
+
             const lon = parseFloat(r.longitude || 0);
             const lat = parseFloat(r.latitude || 0);
             const numVoie = r.adresse_numero || r["No voie"] || "";
+            const typeVoie = r["Type de voie"] || "";
             const nomVoie = r.adresse_nom_voie || r["Voie"] || "";
+            const fullAddr = `${numVoie} ${typeVoie} ${nomVoie}`.replace(/\s+/g, " ").trim();
+
             ingestRow(
               r.id_mutation,
               rawDate,
@@ -1441,15 +1430,15 @@
               parcelId,
               lon,
               lat,
-              `${numVoie} ${nomVoie}`.trim(),
+              fullAddr,
               r.numero_disposition || r["No disposition"] || "1"
             );
           });
         }
 
         // 2. Ingestion du CSV communal 2025
-        if (csv2025Res && !csv2025Res.trim().startsWith("<")) {
-          const lines = csv2025Res.split(/\r?\n/);
+        if (csv2025Text && !csv2025Text.trim().startsWith("<")) {
+          const lines = csv2025Text.split(/\r?\n/);
           if (lines.length > 1) {
             const headers = splitCsvLine(lines[0]);
             const idxIdMut = headers.indexOf("id_mutation");
@@ -1497,14 +1486,13 @@
           }
         }
 
-        // Tri strict par timestamp décroissant (du plus récent au plus ancien)
         aggregated.sort((a, b) => b.timestamp - a.timestamp);
 
         const count2026 = aggregated.filter(m => m.timestamp >= MIN_DVF_TIMESTAMP_2026).length;
         const count2025 = aggregated.length - count2026;
         const maxDateStr = aggregated.length > 0 ? formatShortFrDate(aggregated[0].timestamp) : "Aucune";
         console.log(
-          `%c📊 [DVF Commune ${codeInsee}] ${count2025} ventes (2025) + ${count2026} ventes (2026) | Vente la plus récente : ${maxDateStr}`,
+          `%c📊 [DVF Commune ${codeInsee}] ${count2026} ventes (S1 2026) + ${count2025} ventes (2025) | Plus récente : ${maxDateStr}`,
           "color:#38bdf8;font-weight:bold;"
         );
 
@@ -1514,11 +1502,13 @@
         return aggregated;
       }
 
-      async function fetchLocalBboxDvfCerema(lat, lon, targetParcelId, onlyYear = null) {
+      async function fetchLocalBboxDvfCerema(lat, lon, targetParcelId) {
         const d = 0.0022;
         const bbox = `${(lon - d).toFixed(5)},${(lat - d).toFixed(5)},${(lon + d).toFixed(5)},${(lat + d).toFixed(5)}`;
-        const years = onlyYear ? [onlyYear] : [2026, 2025];
-        const urls = years.map(yr => `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut=${yr}&page_size=50`);
+        const urls = [
+          `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut=2026&page_size=50`,
+          `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut=2025&page_size=50`
+        ];
 
         try {
           const settled = await Promise.allSettled(urls.map(u => fetchWithTimeout(u, 4200)));
@@ -1582,27 +1572,22 @@
       async function fetchRealDVF(lat, lon, targetParcelId, codeInsee, streetName) {
         if (!codeInsee) return { mutations: [], scopeLabel: "Code commune manquant" };
 
-        // Charge en parallèle le cache communal (2025 + Tabular 2026) ET le flux local 2026 Cerema
-        const [allMutations, cerema2026Local] = await Promise.all([
-          loadCommuneDvf2025And2026(codeInsee),
-          fetchLocalBboxDvfCerema(lat, lon, targetParcelId, 2026)
-        ]);
+        const allMutations = await loadCommuneDvf2025And2026(codeInsee);
 
-        const combined = [...cerema2026Local, ...allMutations];
+        if (allMutations.length > 0) {
+          const cleanStreet = (streetName || "").toUpperCase().replace(/^(RUE|AVENUE|BOULEVARD|PLACE|IMPASSE|ALLEE|COURS|QUAI)\s+/i, "").trim();
+          // Préfixe de section cadastrale (ex: "75101000AY") pour matcher aussi les ventes DGFiP S1 2026 non-géocodées de la même section
+          const targetSectionPrefix = targetParcelId && targetParcelId.length >= 10 ? targetParcelId.slice(0, 10) : null;
 
-        if (combined.length > 0) {
-          const cleanStreet = (streetName || "").toUpperCase().replace(/^(RUE|AVENUE|BOULEVARD|PLACE|IMPASSE|ALLEE)\s+/i, "").trim();
-
-          const scored = combined.map(m => {
+          const scored = allMutations.map(m => {
             const exactParcel = Boolean(targetParcelId && m.parcelId === targetParcelId);
-            const distM = (m.distM !== undefined)
-              ? m.distM
-              : ((m.lat && m.lon) ? haversineMeters(lat, lon, m.lat, m.lon) : 9999);
+            const sameSection = Boolean(targetSectionPrefix && m.parcelId && m.parcelId.startsWith(targetSectionPrefix));
+            const distM = (m.lat && m.lon) ? haversineMeters(lat, lon, m.lat, m.lon) : (sameSection ? 110 : 9999);
             const sameStreet = Boolean(cleanStreet && cleanStreet.length > 3 && (m.addr || "").toUpperCase().includes(cleanStreet));
-            return { ...m, exactParcel, distM, sameStreet };
+            return { ...m, exactParcel, sameSection, distM, sameStreet };
           });
 
-          let localMatches = scored.filter(m => m.exactParcel || m.distM <= 220 || m.sameStreet);
+          let localMatches = scored.filter(m => m.exactParcel || m.distM <= 220 || m.sameStreet || m.sameSection);
           let scopeLabel = "Parcelle & Secteur immédiat (<220m)";
 
           if (localMatches.length === 0) {
@@ -1614,7 +1599,7 @@
             scopeLabel = `Commune (${codeInsee})`;
           }
 
-          // TRI 100% CHRONOLOGIQUE DÉCROISSANT (Les ventes les plus récentes de 2026 puis fin 2025 toujours en tête !)
+          // TRI 100% CHRONOLOGIQUE DÉCROISSANT (Les ventes de 2026 apparaissent obligatoirement en haut !)
           localMatches.sort((a, b) => b.timestamp - a.timestamp);
 
           return {
@@ -1743,25 +1728,8 @@
         }
       }
 
-      async function fetchRealRNIC(lat, lon, fullAddress, codeInsee) {
-        const url = `https://data.ademe.fr/data-fair/api/v1/datasets/registre-national-immatriculation-coproprietes/lines?geo_distance=${lon},${lat},55&size=5`;
-        try {
-          const res = await fetchWithTimeout(url, 2000);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.results && data.results.length > 0) {
-              const c = data.results[0];
-              return {
-                found: true,
-                immat: c.numero_immatriculation || "Immatriculée RNIC",
-                syndic: c.type_syndic || "Syndic Professionnel",
-                lotsTotal: c.nombre_total_lots || "—",
-                lotsHab: c.nombre_lots_habitation || "—",
-                periode: c.periode_construction || "Bâti existant"
-              };
-            }
-          }
-        } catch (_) {}
+      // Suppression de l'ancien endpoint RNIC 404
+      async function fetchRealRNIC() {
         return { found: false };
       }
 
@@ -2003,25 +1971,30 @@
             const avgM2 = Math.round(dvfData.mutations.reduce((a, b) => a + b.priceM2, 0) / dvfData.mutations.length);
             dvfPriceEl.textContent = `${avgM2.toLocaleString("fr-FR")} €/m²`;
             dvfCountBadge.textContent = `${dvfData.mutations.length} acte(s)`;
-            dvfBody.innerHTML = dvfData.mutations.map(m => `
-              <tr class="hover:bg-slate-800/50 transition-colors">
-                <td class="py-2 pl-3 pr-1 text-slate-300 align-top">${formatShortFrDate(m.timestamp)}</td>
-                <td class="py-2 px-1 text-slate-200 align-top">
-                  <div class="flex items-center gap-1 flex-wrap">
-                    <span class="font-sans font-medium text-[11px] text-white">${m.type}</span>
-                    ${m.exactParcel
-                      ? '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parcelle</span>'
-                      : `<span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">${m.distM < 9000 ? "à " + m.distM + "m" : "Secteur"}</span>`}
-                  </div>
-                  <span class="block text-[10px] text-slate-400 truncate">${m.addr || ("Parcelle " + (m.parcelId || ""))}</span>
-                </td>
-                <td class="py-2 px-1 text-right text-slate-300 align-top">${Math.round(m.surface)} m²</td>
-                <td class="py-2 pl-1 pr-3 text-right align-top">
-                  <span class="text-amber-300 font-semibold block leading-tight">${m.price.toLocaleString("fr-FR")} €</span>
-                  <span class="text-[10px] text-slate-400 block mt-0.5">${m.priceM2.toLocaleString("fr-FR")} €/m²</span>
-                </td>
-              </tr>
-            `).join("");
+            dvfBody.innerHTML = dvfData.mutations.map(m => {
+              const is2026 = m.timestamp >= MIN_DVF_TIMESTAMP_2026;
+              return `
+                <tr class="hover:bg-slate-800/50 transition-colors">
+                  <td class="py-2 pl-3 pr-1 align-top">
+                    <span class="${is2026 ? 'text-emerald-300 font-semibold' : 'text-slate-300'}">${formatShortFrDate(m.timestamp)}</span>
+                  </td>
+                  <td class="py-2 px-1 text-slate-200 align-top">
+                    <div class="flex items-center gap-1 flex-wrap">
+                      <span class="font-sans font-medium text-[11px] text-white">${m.type}</span>
+                      ${m.exactParcel
+                        ? '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parcelle</span>'
+                        : `<span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">${m.distM < 9000 ? "à " + m.distM + "m" : "Secteur"}</span>`}
+                    </div>
+                    <span class="block text-[10px] text-slate-400 truncate">${m.addr || ("Parcelle " + (m.parcelId || ""))}</span>
+                  </td>
+                  <td class="py-2 px-1 text-right text-slate-300 align-top">${Math.round(m.surface)} m²</td>
+                  <td class="py-2 pl-1 pr-3 text-right align-top">
+                    <span class="text-amber-300 font-semibold block leading-tight">${m.price.toLocaleString("fr-FR")} €</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">${m.priceM2.toLocaleString("fr-FR")} €/m²</span>
+                  </td>
+                </tr>
+              `;
+            }).join("");
           } else {
             dvfPriceEl.textContent = "Aucune vente";
             dvfCountBadge.textContent = "0 mutation";
@@ -2095,18 +2068,6 @@
             dpeList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Aucun diagnostic DPE enregistré pour cette parcelle exacte.</div>`;
           }
           currentExportPayload.dpe = dpeData;
-        });
-
-        fetchRealRNIC(lat, lon, addressName, citycode).then(rnicData => {
-          if (inspectionId !== activeInspectionId) return;
-          if (rnicData.found) {
-            document.getElementById("copro-syndic-type").textContent = rnicData.syndic;
-            document.getElementById("copro-immat").textContent = `${rnicData.immat} (${rnicData.lotsHab} lots hab.)`;
-          } else {
-            document.getElementById("copro-syndic-type").textContent = "Non renseigné";
-            document.getElementById("copro-immat").textContent = "Parcelle cadastrée";
-          }
-          currentExportPayload.rnic = rnicData;
         });
 
         fetchRealDansMaRue(lat, lon, isParis).then(dmrData => {
