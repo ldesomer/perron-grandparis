@@ -2,7 +2,7 @@
 <html lang="fr" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>PERRON — Observatoire Cadastral & Immeubles (Paris & Petite Couronne)</title>
 
   <!-- Tailwind CSS -->
@@ -47,6 +47,7 @@
       overflow: hidden;
       background-color: #070b14;
       color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
     }
 
     #map {
@@ -80,6 +81,14 @@
     .custom-scroll::-webkit-scrollbar-thumb {
       background: rgba(100, 116, 139, 0.45);
       border-radius: 9999px;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
 
     .dpe-A { background-color: #009c6d; color: #fff; }
@@ -131,6 +140,16 @@
       pointer-events: none;
       transform: translate(-50%, -50%);
     }
+
+    /* Gestion du tiroir mobile (Bottom Sheet) sous 1024px */
+    @media (max-width: 1023px) {
+      #dossier-panel.mobile-sheet-collapsed {
+        transform: translateY(calc(100% - 76px));
+      }
+      #dossier-panel.mobile-sheet-expanded {
+        transform: translateY(0%);
+      }
+    }
   </style>
 </head>
 <body class="relative w-screen h-screen overflow-hidden select-none">
@@ -138,26 +157,26 @@
   <!-- CARTE PRINCIPALE PLEIN ÉCRAN -->
   <div id="map"></div>
 
-  <!-- BARRE SUPÉRIEURE FLOTTANTE -->
-  <header class="fixed top-3 left-3 right-3 z-30 pointer-events-none flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
-    <div class="flex items-center gap-2.5 pointer-events-auto">
-      <div class="enamel-plate px-3.5 py-2 rounded-lg flex items-center gap-3 shrink-0">
-        <div class="w-6 h-6 rounded bg-amber-400/20 border border-amber-400/60 flex items-center justify-center font-display font-bold text-amber-300 text-xs">
+  <!-- BARRE SUPÉRIEURE FLOTTANTE (RESPONSIVE) -->
+  <header class="fixed top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-30 pointer-events-none flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2">
+    <div class="flex items-center gap-2 pointer-events-auto">
+      <div class="enamel-plate px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg flex items-center gap-2 sm:gap-3 shrink-0">
+        <div class="w-5 h-5 sm:w-6 sm:h-6 rounded bg-amber-400/20 border border-amber-400/60 flex items-center justify-center font-display font-bold text-amber-300 text-xs">
           P
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <span class="font-display font-bold tracking-wider text-white text-sm">PERRON</span>
-            <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">Grand Paris</span>
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span class="font-display font-bold tracking-wider text-white text-xs sm:text-sm">PERRON</span>
+            <span class="text-[9px] sm:text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">Grand Paris</span>
           </div>
-          <p class="text-[10px] text-slate-300 font-mono">Cadastre • DVF • Loyers • RNIC • DPE • Rue</p>
+          <p class="hidden sm:block text-[10px] text-slate-300 font-mono">Cadastre • DVF • Loyers • DPE • Rue</p>
         </div>
       </div>
 
       <!-- Barre de recherche BAN -->
-      <div class="relative flex-1 sm:w-80 md:w-96">
+      <div class="relative flex-1 lg:w-96">
         <div class="relative flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl focus-within:border-amber-400 transition-colors">
-          <svg class="w-4 h-4 text-slate-400 ml-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 text-slate-400 ml-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
           <input
@@ -165,12 +184,12 @@
             type="text"
             autocomplete="off"
             placeholder="Chercher une adresse (75, 92, 93, 94)..."
-            class="w-full bg-transparent px-3 py-2.5 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none"
+            class="w-full bg-transparent px-2.5 py-2 sm:py-2.5 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none"
           />
           <div id="search-spinner" class="hidden mr-2">
             <div class="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
           </div>
-          <button id="clear-search" class="hidden mr-2.5 text-slate-400 hover:text-white text-xs font-mono px-1.5 py-0.5 rounded bg-slate-800">✕</button>
+          <button id="clear-search" class="hidden mr-2 text-slate-400 hover:text-white text-xs font-mono px-1.5 py-0.5 rounded bg-slate-800">✕</button>
         </div>
 
         <div id="search-results" class="hidden absolute left-0 right-0 mt-1.5 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 max-h-72 overflow-y-auto custom-scroll"></div>
@@ -178,46 +197,46 @@
     </div>
 
     <!-- Raccourcis d'exploration -->
-    <div class="flex items-center gap-1.5 overflow-x-auto pointer-events-auto pb-1 lg:pb-0">
-      <div class="flex items-center bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 gap-1 shadow-xl">
-        <button data-preset="grandparis" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all bg-amber-500 text-slate-950 font-semibold">
-          🗺️ Vue Grand Paris
+    <div class="flex items-center justify-between lg:justify-end gap-1.5 overflow-x-auto no-scrollbar pointer-events-auto">
+      <div class="flex items-center bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 gap-1 shadow-xl shrink-0">
+        <button data-preset="grandparis" class="preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all bg-amber-500 text-slate-950 font-semibold whitespace-nowrap">
+          🗺️ Grand Paris
         </button>
-        <button data-preset="paris1" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70">
+        <button data-preset="paris1" class="preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70 whitespace-nowrap">
           75 Vendôme
         </button>
-        <button data-preset="paris11" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70">
+        <button data-preset="paris11" class="preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70 whitespace-nowrap">
           75 Bastille
         </button>
-        <button data-preset="asnieres" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70">
+        <button data-preset="asnieres" class="preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70 whitespace-nowrap">
           92 Asnières
         </button>
-        <button data-preset="saintouen" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70">
-          93 Saint-Ouen
+        <button data-preset="saintouen" class="preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70 whitespace-nowrap">
+          93 St-Ouen
         </button>
-        <button data-preset="vincennes" class="preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70">
+        <button data-preset="vincennes" class="preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70 whitespace-nowrap">
           94 Vincennes
         </button>
       </div>
 
-      <button id="btn-architecture-modal" class="px-3 py-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 hover:border-amber-400/60 text-xs font-mono text-amber-300 flex items-center gap-1.5 shadow-xl shrink-0">
+      <button id="btn-architecture-modal" class="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 hover:border-amber-400/60 text-xs font-mono text-amber-300 flex items-center gap-1.5 shadow-xl shrink-0">
         <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span class="hidden sm:inline">Sources & Méthodologie</span>
+        <span class="hidden md:inline">Sources</span>
       </button>
     </div>
   </header>
 
-  <!-- COLONNE GAUCHE UNIFIÉE -->
-  <div class="fixed top-20 bottom-3 left-3 z-20 pointer-events-none flex flex-col justify-between gap-2 w-[340px] sm:w-[375px] max-w-[calc(100vw-24px)]">
+  <!-- COLONNE GAUCHE : CLASSEMENT TERRITORIAL & CALQUES -->
+  <div class="fixed top-24 sm:top-24 lg:top-20 bottom-24 lg:bottom-3 left-2 sm:left-3 z-20 pointer-events-none flex flex-col justify-between gap-2 w-[310px] sm:w-[365px] max-w-[calc(100vw-16px)]">
 
     <!-- 1. ENCART CLASSEMENT TERRITORIAL PERRON -->
     <div id="choropleth-dock" class="pointer-events-auto flex flex-col min-h-0 max-h-full">
       <button id="btn-expand-choropleth" class="hidden self-start items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/95 backdrop-blur-xl border border-amber-500/40 shadow-2xl text-xs font-mono text-amber-300 hover:bg-slate-900 transition-all">
-        <span>🏆 Classement PERRON • Vue Grand Paris</span>
+        <span>🏆 Classement PERRON</span>
         <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">Ouvrir</span>
       </button>
 
-      <div id="choropleth-full-card" class="bg-slate-950/95 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-3 shadow-2xl flex flex-col min-h-0 max-h-full overflow-hidden">
+      <div id="choropleth-full-card" class="bg-slate-950/95 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-3 shadow-2xl flex flex-col min-h-0 max-h-[58vh] lg:max-h-full overflow-hidden">
         <div class="flex items-center justify-between gap-2 mb-2 shrink-0">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -302,11 +321,11 @@
     </div>
 
     <!-- 2. BARRE BASSE : CONTRÔLE DES CALQUES + BOUTONS ZOOM (+/-) -->
-    <div class="pointer-events-auto shrink-0 flex items-end gap-2">
-      <div class="bg-slate-950/95 backdrop-blur-xl border border-slate-800 rounded-2xl p-2.5 shadow-2xl w-64">
+    <div class="pointer-events-auto shrink-0 flex items-end gap-1.5 sm:gap-2">
+      <div class="bg-slate-950/95 backdrop-blur-xl border border-slate-800 rounded-2xl p-2 sm:p-2.5 shadow-2xl w-56 sm:w-64">
         <button id="btn-toggle-layers-drawer" class="w-full flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-slate-300 hover:text-white">
           <span class="flex items-center gap-1.5">
-            <span>🗺️ Calques & Fond de carte</span>
+            <span>🗺️ Calques</span>
           </span>
           <span class="flex items-center gap-1.5">
             <span id="zoom-indicator" class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Zoom 12</span>
@@ -368,9 +387,27 @@
     </div>
   </div>
 
-  <!-- PANNEAU LATÉRAL DROIT : DOSSIER D'IMMEUBLE PERRON -->
-  <aside id="dossier-panel" class="fixed top-20 bottom-3 right-3 z-20 w-full max-w-[460px] bg-slate-950/95 backdrop-blur-2xl border border-slate-800/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-300">
-    <div class="p-4 border-b border-slate-800/90 bg-gradient-to-b from-slate-900/90 to-slate-950/90 shrink-0">
+  <!-- PANNEAU LATÉRAL DROIT (DESKTOP) / TIROIR BAS (MOBILE & TABLETTE) -->
+  <aside
+    id="dossier-panel"
+    class="mobile-sheet-collapsed fixed inset-x-0 bottom-0 lg:inset-x-auto lg:top-20 lg:bottom-3 lg:right-3 z-30 lg:z-20 w-full lg:w-[460px] h-[82vh] lg:h-auto bg-slate-950/95 backdrop-blur-2xl border-t lg:border border-slate-800/90 rounded-t-2xl lg:rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-out"
+  >
+    <!-- Barre de poignée tactile (Visible uniquement sur Mobile & Tablette < 1024px) -->
+    <button
+      id="mobile-sheet-handle"
+      type="button"
+      class="lg:hidden w-full pt-2 pb-1.5 px-4 flex items-center justify-between bg-slate-900/95 border-b border-slate-800/80 text-xs font-mono text-amber-300 shrink-0"
+    >
+      <span class="flex items-center gap-2 truncate">
+        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="mobile-sheet-summary" class="font-sans font-semibold text-white truncate">Place Vendôme (75001)</span>
+      </span>
+      <span id="mobile-sheet-toggle-label" class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] shrink-0">
+        ▲ Ouvrir dossier
+      </span>
+    </button>
+
+    <div class="p-3.5 sm:p-4 border-b border-slate-800/90 bg-gradient-to-b from-slate-900/90 to-slate-950/90 shrink-0">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap mb-1">
@@ -384,33 +421,33 @@
               48.86695, 2.33045
             </span>
           </div>
-          <h1 id="building-title" class="font-display font-bold text-lg sm:text-xl text-white leading-tight truncate">
+          <h1 id="building-title" class="font-display font-bold text-base sm:text-xl text-white leading-tight truncate">
             Place Vendôme
           </h1>
-          <p id="building-subtitle" class="text-xs text-slate-400 mt-0.5">
+          <p id="building-subtitle" class="text-xs text-slate-400 mt-0.5 truncate">
             75001 Paris • Surface cadastrale : 1 420 m²
           </p>
         </div>
 
-        <div id="building-status-pill" class="shrink-0 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-right">
+        <div id="building-status-pill" class="shrink-0 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-right hidden sm:block">
           <span class="text-[9px] font-mono uppercase tracking-wider text-slate-400 block">Profil Immeuble</span>
           <span id="building-status-label" class="font-mono font-semibold text-xs text-emerald-400">Données consolidées</span>
         </div>
       </div>
 
-      <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 text-[11px] font-mono">
-        <div class="flex items-center gap-1.5 flex-wrap">
+      <div class="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono">
+        <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap">
           <span id="api-status-ban" class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● BAN</span>
           <span id="api-status-dpe" class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● ADEME</span>
-          <span id="api-status-dmr" class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● DansMaRue</span>
-          <span id="api-status-dvf" class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● DVF 2025–S1 2026</span>
+          <span id="api-status-dmr" class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● Voirie</span>
+          <span id="api-status-dvf" class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">● DVF 2025–2026</span>
         </div>
         <button id="btn-export-json" class="text-slate-400 hover:text-amber-300 transition-colors flex items-center gap-1 shrink-0">
-          <span>⇣ Export JSON</span>
+          <span>⇣ JSON</span>
         </button>
       </div>
 
-      <div class="grid grid-cols-4 gap-1 mt-3 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-[11px] font-medium">
+      <div class="grid grid-cols-4 gap-1 mt-2.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-[11px] font-medium">
         <a href="#sec-marche" class="nav-pill text-center py-1.5 rounded-lg bg-slate-800 text-amber-300 font-semibold transition-colors">1. Marché</a>
         <a href="#sec-immeuble" class="nav-pill text-center py-1.5 rounded-lg text-slate-300 hover:text-white transition-colors">2. Immeuble</a>
         <a href="#sec-dpe" class="nav-pill text-center py-1.5 rounded-lg text-slate-300 hover:text-white transition-colors">3. DPE</a>
@@ -418,14 +455,14 @@
       </div>
     </div>
 
-    <div id="dossier-scroll" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-5">
+    <div id="dossier-scroll" class="flex-1 overflow-y-auto custom-scroll p-3.5 sm:p-4 space-y-5">
 
       <!-- PILIER 1 : MARCHÉ & LOYERS -->
       <section id="sec-marche" class="space-y-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-5 h-5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-xs flex items-center justify-center font-bold">1</span>
-            <h2 class="font-display font-bold text-sm uppercase tracking-wider text-white">Marché & Encadrement des Loyers</h2>
+            <h2 class="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-white">Marché & Encadrement des Loyers</h2>
           </div>
           <span id="rent-zone-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
             Zone Encadrée (DRIHL)
@@ -435,13 +472,13 @@
         <div class="grid grid-cols-2 gap-2.5">
           <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-400">Prix Moyen DVF</span>
+              <span class="text-[11px] text-slate-400">Prix Moyen Quartier</span>
               <span id="dvf-count-badge" class="text-[10px] font-mono text-amber-400">Chargement...</span>
             </div>
             <div class="mt-1 flex items-baseline gap-1.5">
-              <span id="dvf-price-m2" class="font-mono font-bold text-lg text-white">— €/m²</span>
+              <span id="dvf-price-m2" class="font-mono font-bold text-base sm:text-lg text-white">— €/m²</span>
             </div>
-            <p id="dvf-Updated-hint" class="text-[10px] text-slate-500 font-mono mt-1">Actes notariés publiés (DVF)</p>
+            <p id="dvf-Updated-hint" class="text-[10px] text-slate-500 font-mono mt-1">Moyenne secteur (&lt;220m)</p>
           </div>
 
           <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
@@ -450,7 +487,7 @@
               <span id="rent-status-tag" class="text-[10px] font-mono text-emerald-400">Plafond Majoré</span>
             </div>
             <div class="mt-1 flex items-baseline gap-1.5">
-              <span id="rent-max-m2" class="font-mono font-bold text-lg text-amber-300">37.9 €/m²</span>
+              <span id="rent-max-m2" class="font-mono font-bold text-base sm:text-lg text-amber-300">37.9 €/m²</span>
             </div>
             <p id="rent-ref-sub" class="text-[10px] text-slate-400 font-mono mt-1">Réf: 31.6 € • Min: 22.1 €</p>
           </div>
@@ -458,7 +495,7 @@
 
         <div id="rent-simulator-box" class="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
           <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-300 font-medium">Simulateur de bail (<span id="sim-surface-val" class="font-mono text-amber-300">45</span> m² • Non meublé)</span>
+            <span class="text-slate-300 font-medium">Simulateur de bail (<span id="sim-surface-val" class="font-mono text-amber-300">45</span> m²)</span>
             <span id="sim-total-rent" class="font-mono font-semibold text-emerald-400">Max : 1 705 € / mois HC</span>
           </div>
           <input id="sim-surface-slider" type="range" min="15" max="140" value="45" class="w-full accent-amber-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer" />
@@ -472,11 +509,11 @@
         <div class="rounded-xl bg-slate-900/90 border border-slate-800 overflow-hidden">
           <div class="px-3 py-2 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-900">
             <div>
-              <span class="text-xs font-semibold text-slate-200 block">Dernières ventes notariées (DVF)</span>
-              <span id="dvf-source-label" class="text-[10px] font-mono text-slate-400">Parcelle & secteur immédiat</span>
+              <span class="text-xs font-semibold text-slate-200 block">Ventes de la parcelle sélectionnée</span>
+              <span id="dvf-source-label" class="text-[10px] font-mono text-amber-300/90">Uniquement sur cette parcelle cadastrale</span>
             </div>
             <span id="dvf-vintage-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
-              Millésimes 2025 – S1 2026
+              2025 – S1 2026
             </span>
           </div>
           <div class="overflow-x-hidden">
@@ -484,7 +521,7 @@
               <thead>
                 <tr class="border-b border-slate-800/80 text-[10px] font-mono uppercase text-slate-400 bg-slate-950/50">
                   <th class="py-2 pl-3 pr-1 w-[74px]">Date</th>
-                  <th class="py-2 px-1">Bien & Proximité</th>
+                  <th class="py-2 px-1">Bien (Parcelle)</th>
                   <th class="py-2 px-1 text-right w-[56px]">Surf.</th>
                   <th class="py-2 pl-1 pr-3 text-right w-[108px]">Prix & €/m²</th>
                 </tr>
@@ -503,7 +540,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-5 h-5 rounded-md bg-blue-500/20 border border-blue-500/40 text-blue-300 font-mono text-xs flex items-center justify-center font-bold">2</span>
-            <h2 class="font-display font-bold text-sm uppercase tracking-wider text-white">Vie de l'Immeuble & Cadastre</h2>
+            <h2 class="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-white">Vie de l'Immeuble & Cadastre</h2>
           </div>
           <span id="rnic-source-badge" class="text-[10px] font-mono text-slate-400">Cadastre IGN</span>
         </div>
@@ -511,17 +548,17 @@
         <div class="grid grid-cols-3 gap-2">
           <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
             <span class="text-[10px] text-slate-400 block">Parcelle IGN</span>
-            <span id="copro-lots-total" class="font-mono font-bold text-sm text-white mt-0.5 block">Section AY</span>
+            <span id="copro-lots-total" class="font-mono font-bold text-xs sm:text-sm text-white mt-0.5 block">Section AY</span>
             <span id="copro-lots-detail" class="text-[10px] font-mono text-slate-400">N° 0018</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
             <span class="text-[10px] text-slate-400 block">Statut Cadastral</span>
-            <span id="copro-syndic-type" class="font-mono font-bold text-sm text-emerald-400 mt-0.5 block">Bâti vérifié</span>
+            <span id="copro-syndic-type" class="font-mono font-bold text-xs sm:text-sm text-emerald-400 mt-0.5 block">Bâti vérifié</span>
             <span id="copro-immat" class="text-[10px] font-mono text-slate-400">Parcelle active</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
             <span class="text-[10px] text-slate-400 block">Emprise au sol</span>
-            <span id="copro-periode" class="font-mono font-bold text-sm text-white mt-0.5 block">1 420 m²</span>
+            <span id="copro-periode" class="font-mono font-bold text-xs sm:text-sm text-white mt-0.5 block">1 420 m²</span>
             <span id="copro-apur-flag" class="text-[10px] font-mono text-emerald-400">Cadastre Etalab</span>
           </div>
         </div>
@@ -537,7 +574,7 @@
           </div>
 
           <form id="review-form" class="hidden space-y-2 pt-2 border-t border-slate-800">
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select id="review-role" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white">
                 <option value="Locataire">Locataire actuel / ancien</option>
                 <option value="Copropriétaire">Copropriétaire</option>
@@ -570,7 +607,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-5 h-5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-xs flex items-center justify-center font-bold">3</span>
-            <h2 class="font-display font-bold text-sm uppercase tracking-wider text-white">DPE & Énergie (Parcelle stricte)</h2>
+            <h2 class="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-white">DPE & Énergie (Parcelle stricte)</h2>
           </div>
           <span id="dpe-source-status" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
             Base ADEME
@@ -599,11 +636,11 @@
       <hr class="border-slate-800/80" />
 
       <!-- PILIER 4 : ENVIRONNEMENT IMMÉDIAT -->
-      <section id="sec-rue" class="space-y-3 pb-2">
+      <section id="sec-rue" class="space-y-3 pb-6">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-5 h-5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono text-xs flex items-center justify-center font-bold">4</span>
-            <h2 class="font-display font-bold text-sm uppercase tracking-wider text-white">Environnement & Voirie (&lt; 4 mois)</h2>
+            <h2 class="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-white">Environnement & Voirie (&lt; 4 mois)</h2>
           </div>
           <span id="dmr-count-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
             Chargement...
@@ -645,7 +682,7 @@
           <p class="font-semibold text-emerald-300 mb-1">2. Croisement en Temps Réel à la Parcelle</p>
           <ul class="list-disc pl-4 space-y-1 text-slate-400">
             <li><strong class="text-white">Cadastre & Emprise :</strong> Flux WMTS IGN Géoplateforme (<code class="text-amber-300">CADASTRALPARCELS.PARCELLAIRE_EXPRESS</code>) et API Carto Cadastre IGN.</li>
-            <li><strong class="text-white">Mutations DVF (2025 – S1 2026) :</strong> Fichiers communaux S1 2026 (<code class="text-amber-300">/dvf-2026/</code> extraits de la publication DGFiP) et Geo-DVF 2025, regroupés par acte notarié et triés chronologiquement.</li>
+            <li><strong class="text-white">Mutations DVF (2025 – S1 2026) :</strong> Le Prix Moyen est calculé sur le secteur immédiat (&lt;220 m), tandis que la liste des transactions affiche exclusivement les ventes intervenues sur la parcelle cadastrale sélectionnée.</li>
             <li><strong class="text-white">DPE ADEME :</strong> Base nationale <code class="text-amber-300">dpe03existant</code> filtrée strictement sur l'identifiant BAN et l'adresse de la parcelle.</li>
             <li><strong class="text-white">Voirie & Propreté :</strong> API OpenData Paris <code class="text-amber-300">dans-ma-rue</code> sur les 4 derniers mois dans un rayon de 85 m.</li>
           </ul>
@@ -742,6 +779,32 @@
       let choroplethGeoFeatures = [];
       let currentExportPayload = {};
       let activeInspectionId = 0;
+      let isMobileSheetOpen = false;
+
+      // Gestion du tiroir mobile (Bottom Sheet)
+      const dossierPanel = document.getElementById("dossier-panel");
+      const mobileHandle = document.getElementById("mobile-sheet-handle");
+      const mobileToggleLabel = document.getElementById("mobile-sheet-toggle-label");
+
+      function setMobileSheetOpen(open) {
+        isMobileSheetOpen = Boolean(open);
+        if (!dossierPanel) return;
+        if (isMobileSheetOpen) {
+          dossierPanel.classList.remove("mobile-sheet-collapsed");
+          dossierPanel.classList.add("mobile-sheet-expanded");
+          if (mobileToggleLabel) mobileToggleLabel.textContent = "▼ Voir la carte";
+        } else {
+          dossierPanel.classList.remove("mobile-sheet-expanded");
+          dossierPanel.classList.add("mobile-sheet-collapsed");
+          if (mobileToggleLabel) mobileToggleLabel.textContent = "▲ Ouvrir dossier";
+        }
+      }
+
+      if (mobileHandle) {
+        mobileHandle.addEventListener("click", () => {
+          setMobileSheetOpen(!isMobileSheetOpen);
+        });
+      }
 
       const map = L.map("map", {
         center: [PRESETS.grandparis.lat, PRESETS.grandparis.lon],
@@ -811,6 +874,7 @@
       });
       document.getElementById("btn-expand-choropleth").addEventListener("click", () => {
         setChoroplethCollapsed(false);
+        setMobileSheetOpen(false);
         if (map.getZoom() >= 15) {
           map.flyTo([48.862, 2.338], 12, { duration: 0.9 });
         }
@@ -1144,7 +1208,7 @@
           }
         } else {
           if (map.hasLayer(cadastreParcelsLayer)) map.removeLayer(cadastreParcelsLayer);
-          if (z < 15) setChoroplethCollapsed(false);
+          if (z < 15 && window.innerWidth >= 1024) setChoroplethCollapsed(false);
           if (hintEl) {
             hintEl.innerHTML = `🗺️ <strong class="text-emerald-300">Vue Grand Paris :</strong> Survolez ou cliquez sur une zone colorée.`;
           }
@@ -1292,7 +1356,6 @@
       const MIN_DVF_TIMESTAMP_2026 = Date.UTC(2026, 0, 1);
       const communeGeoDvfCache = new Map();
 
-      // Normalise l'id_parcelle (remplace tout espace interne issu de rjust Python par un '0')
       function normalizeParcelId(rawId) {
         if (!rawId) return "";
         const s = String(rawId).trim();
@@ -1302,13 +1365,11 @@
         return s.replace(/\s+/g, "");
       }
 
-      // Lecture directe des fichiers CSV S1 2026 générés dans ./dvf-2026/{dept}/{codeInsee}.csv
       async function fetchLocalGithubDvfS12026Text(codeInsee) {
         if (!codeInsee) return null;
         const dept = codeInsee.slice(0, 2);
         const candidates = [`./dvf-2026/${dept}/${codeInsee}.csv`];
 
-        // Gestion de la variante DGFiP sur Paris (75101 vs 75001)
         if (codeInsee.startsWith("751")) {
           candidates.push(`./dvf-2026/75/750${codeInsee.slice(3)}.csv`);
         } else if (codeInsee.startsWith("750")) {
@@ -1381,7 +1442,9 @@
             const parcelId = normalizeParcelId(cols[idxParcel] || "");
             const pieces = parseInt(cols[idxPieces] || "0", 10) || 0;
             const dispo = idxDispo >= 0 ? (cols[idxDispo] || "1") : "1";
-            const addr = `${cols[idxNumVoie] || ""} ${cols[idxNomVoie] || ""}`.replace(/\s+/g, " ").trim();
+            const numVoie = String(cols[idxNumVoie] || "").trim();
+            const nomVoie = String(cols[idxNomVoie] || "").trim();
+            const addr = `${numVoie} ${nomVoie}`.replace(/\s+/g, " ").trim();
 
             const mutKey = cols[idxIdMut] || `${rawDate}_${Math.round(numVal)}_${parcelId || addr}`;
             const lotKey = `${mutKey}_${dispo}_${parcelId}_${cleanType}_${numSurf}_${pieces}`;
@@ -1403,6 +1466,8 @@
                 lon: !isNaN(lon) && lon !== 0 ? lon : null,
                 lat: !isNaN(lat) && lat !== 0 ? lat : null,
                 addr: addr,
+                numVoie: numVoie,
+                nomVoie: nomVoie,
                 distinctMainUnits: 1
               });
             } else {
@@ -1413,7 +1478,6 @@
           }
         }
 
-        // Chargement parallèle : Dossier local GitHub ./dvf-2026/ + Proxy CSV 2025
         const csvUrl2025 = `/api-dvf/latest/csv/2025/communes/${dept}/${codeInsee}.csv`;
 
         const [csv2026Text, csv2025Text] = await Promise.all([
@@ -1433,7 +1497,6 @@
           }
         }
 
-        // Tri strict par date décroissante (2026 en tête, puis fin 2025)
         aggregated.sort((a, b) => b.timestamp - a.timestamp);
 
         const count2026 = aggregated.filter(m => m.timestamp >= MIN_DVF_TIMESTAMP_2026).length;
@@ -1450,127 +1513,93 @@
         return aggregated;
       }
 
-      async function fetchLocalBboxDvfCerema(lat, lon, targetParcelId) {
-        const d = 0.0022;
-        const bbox = `${(lon - d).toFixed(5)},${(lat - d).toFixed(5)},${(lon + d).toFixed(5)},${(lat + d).toFixed(5)}`;
-        const url = `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut=2025&page_size=50`;
-
-        try {
-          const res = await fetchWithTimeout(url, 4500);
-          if (!res.ok) return [];
-          const data = await res.json();
-          const features = data.features || [];
-          const list = [];
-
-          features.forEach(f => {
-            const p = f.properties || f;
-            const rawDate = p.datemut || p.date_mutation;
-            const ts = parseDateToTimestamp(rawDate);
-            if (ts < MIN_DVF_TIMESTAMP_2025) return;
-
-            const libType = String(p.libtypbien || p.type_local || "Appartement");
-            if (/ACTIVIT|COMMERC|BUREAU|INDUSTRI|DEPENDANCE|TERRAIN/i.test(libType)) return;
-
-            const val = parseFloat(p.valeurfonc || p.valeur_fonciere || 0);
-            const surf = parseFloat(p.sbati || p.surface_reelle_bati || 0);
-            if (val < 30000 || surf < 9) return;
-            const pm2 = Math.round(val / surf);
-            if (pm2 < 2200 || pm2 > 32000) return;
-
-            const parcels = Array.isArray(p.l_idpar) ? p.l_idpar : [];
-            const firstParcel = parcels[0] || "";
-
-            let fLat = null, fLon = null;
-            if (f.geometry && f.geometry.coordinates) {
-              const c = f.geometry.coordinates;
-              if (typeof c[0] === "number") { fLon = c[0]; fLat = c[1]; }
-              else if (Array.isArray(c[0]) && typeof c[0][0] === "number") { fLon = c[0][0]; fLat = c[0][1]; }
-              else if (Array.isArray(c[0]) && Array.isArray(c[0][0]) && typeof c[0][0][0] === "number") { fLon = c[0][0][0]; fLat = c[0][0][1]; }
-            }
-
-            const distM = (fLat && fLon) ? haversineMeters(lat, lon, fLat, fLon) : 85;
-            const exactParcel = Boolean(targetParcelId && (parcels.includes(targetParcelId) || firstParcel === targetParcelId));
-
-            list.push({
-              timestamp: ts,
-              price: Math.round(val),
-              surface: Math.round(surf),
-              priceM2: pm2,
-              type: libType.toUpperCase().includes("MAISON") ? "Maison" : "Appartement",
-              parcelId: firstParcel,
-              addr: "",
-              exactParcel,
-              distM
-            });
-          });
-
-          list.sort((a, b) => b.timestamp - a.timestamp);
-          return list;
-        } catch (_) {
-          return [];
+      // Compare deux identifiants de parcelle en ignorant la différence 751xx vs 750xx sur Paris
+      function isSameCadastralParcel(parcelA, parcelB) {
+        if (!parcelA || !parcelB) return false;
+        const a = normalizeParcelId(parcelA);
+        const b = normalizeParcelId(parcelB);
+        if (a === b) return true;
+        // Sur Paris, le code commune DGFiP est 75101..75120 ou 75001..75020, mais les 11 derniers caractères (arrondissement + section + plan) sont identiques
+        if (a.startsWith("75") && b.startsWith("75") && a.length === 14 && b.length === 14) {
+          return a.slice(3) === b.slice(3);
         }
+        return false;
       }
 
-      async function fetchRealDVF(lat, lon, targetParcelId, codeInsee, streetName) {
-        if (!codeInsee) return { mutations: [], scopeLabel: "Code commune manquant" };
+      async function fetchRealDVF(lat, lon, targetParcelId, codeInsee, streetName, houseNumber) {
+        if (!codeInsee) {
+          return { parcelMutations: [], avgSectorPriceM2: null, sectorCount: 0, scopeLabel: "Code commune manquant" };
+        }
 
         const allMutations = await loadCommuneDvf2025And2026(codeInsee);
 
         if (allMutations.length > 0) {
           const cleanStreet = (streetName || "").toUpperCase().replace(/^(RUE|AVENUE|BOULEVARD|PLACE|IMPASSE|ALLEE|COURS|QUAI|PASSAGE|VILLA|SQUARE)\s+/i, "").trim();
+          const cleanHouseNum = String(houseNumber || "").trim().toUpperCase();
           const normTargetParcel = normalizeParcelId(targetParcelId);
-          // Préfixe de section cadastrale (ex: "75101000AY" ou les 2 lettres de section "AY") pour matcher les ventes S1 2026 de la même section
-          const targetSectionPrefix = normTargetParcel.length >= 10 ? normTargetParcel.slice(0, 10) : null;
           const targetSectionLetters = normTargetParcel.length >= 10 ? normTargetParcel.slice(8, 10) : null;
 
           const scored = allMutations.map(m => {
             const mParcel = normalizeParcelId(m.parcelId);
-            const exactParcel = Boolean(normTargetParcel && mParcel && mParcel === normTargetParcel);
-            const sameSection = Boolean(
-              (targetSectionPrefix && mParcel && mParcel.startsWith(targetSectionPrefix)) ||
-              (targetSectionLetters && mParcel.length >= 10 && mParcel.slice(8, 10) === targetSectionLetters)
-            );
+            const matchById = isSameCadastralParcel(normTargetParcel, mParcel);
             const sameStreet = Boolean(cleanStreet && cleanStreet.length > 3 && (m.addr || "").toUpperCase().includes(cleanStreet));
+            const matchByExactAddress = Boolean(
+              cleanHouseNum &&
+              sameStreet &&
+              String(m.numVoie || "").trim().toUpperCase() === cleanHouseNum
+            );
+
+            // Une vente appartient à la parcelle cliquée si son id_parcelle correspond OU si son numéro + rue correspondent exactement
+            const exactParcel = Boolean(matchById || matchByExactAddress);
+
+            const sameSection = Boolean(
+              targetSectionLetters && mParcel.length >= 10 && mParcel.slice(8, 10) === targetSectionLetters
+            );
 
             let distM = 9999;
-            if (m.lat && m.lon) {
-              distM = haversineMeters(lat, lon, m.lat, m.lon);
-            } else if (exactParcel) {
+            if (exactParcel) {
               distM = 0;
+            } else if (m.lat && m.lon) {
+              distM = haversineMeters(lat, lon, m.lat, m.lon);
             } else if (sameStreet) {
-              distM = 45;
+              distM = 60;
             } else if (sameSection) {
-              distM = 110;
+              distM = 120;
             }
 
             return { ...m, exactParcel, sameSection, sameStreet, distM };
           });
 
-          let localMatches = scored.filter(m => m.exactParcel || m.sameStreet || m.distM <= 220 || m.sameSection);
-          let scopeLabel = "Parcelle, Rue & Section cadastrale";
-
-          if (localMatches.length === 0) {
-            localMatches = scored.filter(m => m.distM <= 500);
-            scopeLabel = "Quartier proche (<500m)";
+          // 1. Calcul du PRIX MOYEN sur le quartier/secteur (<220m, même rue ou même section)
+          let sectorMatches = scored.filter(m => m.exactParcel || m.sameStreet || m.distM <= 220 || m.sameSection);
+          if (sectorMatches.length === 0) {
+            sectorMatches = scored.filter(m => m.distM <= 500);
           }
-          if (localMatches.length === 0) {
-            localMatches = scored;
-            scopeLabel = `Commune (${codeInsee})`;
+          if (sectorMatches.length === 0) {
+            sectorMatches = scored;
           }
 
-          // TRI 100% CHRONOLOGIQUE DÉCROISSANT (Les ventes de S1 2026 apparaissent en haut du tableau !)
-          localMatches.sort((a, b) => b.timestamp - a.timestamp);
+          const avgSectorPriceM2 = sectorMatches.length > 0
+            ? Math.round(sectorMatches.reduce((acc, item) => acc + item.priceM2, 0) / sectorMatches.length)
+            : null;
+
+          // 2. Liste des ventes : UNIQUEMENT les ventes de la parcelle cliquée (triées de la plus récente à la plus ancienne)
+          const parcelOnlyMutations = scored.filter(m => m.exactParcel);
+          parcelOnlyMutations.sort((a, b) => b.timestamp - a.timestamp);
 
           return {
-            mutations: localMatches.slice(0, 25),
-            scopeLabel
+            parcelMutations: parcelOnlyMutations,
+            avgSectorPriceM2,
+            sectorCount: sectorMatches.length,
+            scopeLabel: `Parcelle ${normTargetParcel || "sélectionnée"} uniquement`
           };
         }
 
-        const bboxMutations = await fetchLocalBboxDvfCerema(lat, lon, targetParcelId);
         return {
-          mutations: bboxMutations.slice(0, 25),
-          scopeLabel: "Rayon immédiat de la parcelle (200m)"
+          parcelMutations: [],
+          avgSectorPriceM2: null,
+          sectorCount: 0,
+          scopeLabel: "Parcelle sélectionnée uniquement"
         };
       }
 
@@ -1822,6 +1851,9 @@
 
         if (!keepOverview) {
           setChoroplethCollapsed(true);
+          if (window.innerWidth < 1024) {
+            setMobileSheetOpen(true);
+          }
         }
 
         document.getElementById("coord-badge").textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
@@ -1829,7 +1861,7 @@
         document.getElementById("parcel-id-badge").textContent = "Cadastre...";
         document.getElementById("dvf-count-badge").textContent = "Chargement...";
         document.getElementById("dvf-table-body").innerHTML = `
-          <tr><td colspan="4" class="py-4 px-3 text-center text-slate-400 text-xs">Recherche des actes notariés...</td></tr>
+          <tr><td colspan="4" class="py-4 px-3 text-center text-slate-400 text-xs">Recherche des actes de la parcelle...</td></tr>
         `;
 
         selectedParcelGroup.clearLayers();
@@ -1882,6 +1914,7 @@
         const citycode = (banProps && banProps.citycode) ? banProps.citycode : insee;
         const banId = (banProps && banProps.id) ? banProps.id : null;
         const streetName = (banProps && banProps.street) ? banProps.street : addressName;
+        const houseNumber = (banProps && banProps.housenumber) ? banProps.housenumber : "";
         const dept = citycode ? citycode.slice(0, 2) : (postcode ? postcode.slice(0, 2) : "75");
         const isParis = dept === "75";
 
@@ -1894,6 +1927,11 @@
         document.getElementById("territory-badge").textContent = `${city || "Grand Paris"} (${dept})`;
         document.getElementById("building-title").textContent = addressName;
         document.getElementById("building-subtitle").textContent = `${postcode} ${city}${contenance ? " • Surface cadastrale : " + contenance.toLocaleString("fr-FR") + " m²" : ""}`;
+        const mobileSummaryEl = document.getElementById("mobile-sheet-summary");
+        if (mobileSummaryEl) {
+          mobileSummaryEl.textContent = `${addressName} (${postcode})`;
+        }
+
         document.getElementById("copro-lots-total").textContent = `Section ${section}`;
         document.getElementById("copro-lots-detail").textContent = `Parcelle n° ${numero}`;
         document.getElementById("copro-periode").textContent = contenance ? `${contenance.toLocaleString("fr-FR")} m²` : "—";
@@ -1910,7 +1948,7 @@
           rentControl: rentMetrics
         };
 
-        fetchRealDVF(lat, lon, parcelFeature ? parcelId : null, citycode, streetName).then(dvfData => {
+        fetchRealDVF(lat, lon, parcelFeature ? parcelId : null, citycode, streetName, houseNumber).then(dvfData => {
           if (inspectionId !== activeInspectionId) return;
           const dvfBody = document.getElementById("dvf-table-body");
           const dvfCountBadge = document.getElementById("dvf-count-badge");
@@ -1921,21 +1959,20 @@
             dvfSourceLabel.textContent = dvfData.scopeLabel;
           }
 
-          if (dvfData.mutations.length > 0) {
-            const avgM2 = Math.round(dvfData.mutations.reduce((a, b) => a + b.priceM2, 0) / dvfData.mutations.length);
-            dvfPriceEl.textContent = `${avgM2.toLocaleString("fr-FR")} €/m²`;
-            dvfCountBadge.textContent = `${dvfData.mutations.length} acte(s)`;
-            dvfBody.innerHTML = dvfData.mutations.map(m => {
-              const is2026 = m.timestamp >= MIN_DVF_TIMESTAMP_2026;
-              let proxBadge = '<span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">Secteur</span>';
-              if (m.exactParcel) {
-                proxBadge = '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parcelle</span>';
-              } else if (m.sameStreet) {
-                proxBadge = '<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Même voie</span>';
-              } else if (m.distM < 9000) {
-                proxBadge = `<span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">~${m.distM}m</span>`;
-              }
+          // 1. Affichage du Prix Moyen sur le Quartier / Secteur
+          if (dvfData.avgSectorPriceM2) {
+            dvfPriceEl.textContent = `${dvfData.avgSectorPriceM2.toLocaleString("fr-FR")} €/m²`;
+            dvfCountBadge.textContent = `${dvfData.parcelMutations.length} sur parcelle`;
+          } else {
+            dvfPriceEl.textContent = "— €/m²";
+            dvfCountBadge.textContent = "0 sur parcelle";
+          }
 
+          // 2. Affichage de la liste : UNIQUEMENT les ventes de la parcelle sélectionnée
+          if (dvfData.parcelMutations.length > 0) {
+            dvfBody.innerHTML = dvfData.parcelMutations.map(m => {
+              const is2026 = m.timestamp >= MIN_DVF_TIMESTAMP_2026;
+              const piecesTag = m.pieces ? ` • ${m.pieces}p` : "";
               return `
                 <tr class="hover:bg-slate-800/50 transition-colors">
                   <td class="py-2 pl-3 pr-1 align-top">
@@ -1943,8 +1980,8 @@
                   </td>
                   <td class="py-2 px-1 text-slate-200 align-top">
                     <div class="flex items-center gap-1 flex-wrap">
-                      <span class="font-sans font-medium text-[11px] text-white">${m.type}</span>
-                      ${proxBadge}
+                      <span class="font-sans font-medium text-[11px] text-white">${m.type}${piecesTag}</span>
+                      <span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parcelle</span>
                     </div>
                     <span class="block text-[10px] text-slate-400 truncate">${m.addr || ("Parcelle " + (m.parcelId || ""))}</span>
                   </td>
@@ -1957,12 +1994,11 @@
               `;
             }).join("");
           } else {
-            dvfPriceEl.textContent = "Aucune vente";
-            dvfCountBadge.textContent = "0 mutation";
             dvfBody.innerHTML = `
               <tr>
-                <td colspan="4" class="py-4 px-3 text-center text-slate-400 font-sans text-xs">
-                  Aucune vente notariée publiée (2025 – S1 2026) dans le périmètre immédiat de cette parcelle.
+                <td colspan="4" class="py-4 px-3 text-center text-slate-400 font-sans text-xs leading-relaxed">
+                  Aucune vente notariée enregistrée sur <strong class="text-slate-200">cette parcelle exacte</strong> en 2025 – S1 2026.<br/>
+                  <span class="text-[11px] text-slate-500">(Le prix moyen de secteur ci-dessus est calculé sur ${dvfData.sectorCount} vente(s) à proximité immédiate).</span>
                 </td>
               </tr>
             `;
@@ -2015,12 +2051,14 @@
             `).join("");
 
             const statusLabel = document.getElementById("building-status-label");
-            if (fgPct >= 35) {
-              statusLabel.textContent = "Vigilance Thermique (F/G)";
-              statusLabel.className = "font-mono font-semibold text-xs text-rose-400";
-            } else {
-              statusLabel.textContent = "Conforme / Standard";
-              statusLabel.className = "font-mono font-semibold text-xs text-emerald-400";
+            if (statusLabel) {
+              if (fgPct >= 35) {
+                statusLabel.textContent = "Vigilance Thermique (F/G)";
+                statusLabel.className = "font-mono font-semibold text-xs text-rose-400";
+              } else {
+                statusLabel.textContent = "Conforme / Standard";
+                statusLabel.className = "font-mono font-semibold text-xs text-emerald-400";
+              }
             }
           } else {
             passoireShareEl.textContent = "0 DPE sur cette parcelle";
@@ -2103,6 +2141,7 @@
                 const rLat = parseFloat(row.getAttribute("data-lat"));
                 const rLon = parseFloat(row.getAttribute("data-lon"));
                 if (!isNaN(rLat) && !isNaN(rLon)) {
+                  if (window.innerWidth < 1024) setMobileSheetOpen(false);
                   map.flyTo([rLat, rLon], 18, { duration: 0.5 });
                 }
               });
@@ -2188,12 +2227,13 @@
           const p = PRESETS[key];
           if (!p) return;
           document.querySelectorAll(".preset-btn").forEach(b => {
-            b.className = "preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70";
+            b.className = "preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all text-slate-300 hover:text-white hover:bg-slate-800/70 whitespace-nowrap";
           });
-          btn.className = "preset-btn px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all bg-amber-500 text-slate-950 font-semibold";
+          btn.className = "preset-btn px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all bg-amber-500 text-slate-950 font-semibold whitespace-nowrap";
           map.flyTo([p.lat, p.lon], p.zoom, { duration: 1.0 });
           if (key === "grandparis") {
             setChoroplethCollapsed(false);
+            setMobileSheetOpen(false);
           } else {
             inspectLocation(p.lat, p.lon);
           }
@@ -2259,6 +2299,11 @@
       const archModal = document.getElementById("architecture-modal");
       document.getElementById("btn-architecture-modal").addEventListener("click", () => archModal.classList.remove("hidden"));
       document.getElementById("close-architecture-modal").addEventListener("click", () => archModal.classList.add("hidden"));
+
+      // Au démarrage sur mobile, réduire le panneau choroplèthe par défaut pour dégager la carte
+      if (window.innerWidth < 640) {
+        setChoroplethCollapsed(true);
+      }
 
       updateLegendUI("perron");
       renderPalmaresList("perron");
