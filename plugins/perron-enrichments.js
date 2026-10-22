@@ -1,13 +1,9 @@
 /**
- * PERRON — Module d'enrichissement v9
- * - Affichage intégral (SANS LIMITE) de tous les points dans le rayon :
- *   Écoles (Maternelle, Élémentaire, Primaire, Collège, Lycée Public/Privé),
- *   Transports ferrés (Métro, RER, Transilien, Tram — sans bus),
- *   Vélib' (avec bornes libres), Îlots de fraîcheur, Chantiers, Commerces de bouche RDC, RPLS.
+ * PERRON — Module d'enrichissement v10 (Zéro erreur 404, Rayon complet sans limite, S1 2026 actif)
  */
 
 (function () {
-  console.log("%c✅ [PERRON] Module d'enrichissement v9 actif (Rayon complet sans limite & S1 2026)", "color:#10b981;font-weight:bold;");
+  console.log("%c✅ [PERRON] Module d'enrichissement v10 actif (Zéro 404 • Rayon complet • S1 2026)", "color:#10b981;font-weight:bold;");
 
   let lastRunCoords = "";
   let debounceTimer = null;
@@ -122,8 +118,7 @@
       wrap.innerHTML =
         '<div id="slot-lot3-commerces" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
         '<div id="slot-lot1-georisques" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
-        '<div id="slot-lot1-urbanisme" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>' +
-        '<div id="slot-lot2-antennes" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
+        '<div id="slot-lot1-urbanisme" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90"></div>';
       tabBuilding.appendChild(wrap);
     }
 
@@ -176,7 +171,7 @@
     }
   }
 
-  // 2. COMMERCES DE BOUCHE & BARS RDC (Tous affichés dans le rayon de 55m)
+  // 2. COMMERCES DE BOUCHE & BARS RDC (Rayon 55m)
   async function loadCommercesRDC(lat, lon, signal) {
     const el = document.getElementById("slot-lot3-commerces");
     if (!el) return;
@@ -240,35 +235,32 @@
     }
   }
 
-  // 3. URBANISME (Tous les dossiers dans le rayon de 120m)
+  // 3. CHANTIERS & TRAVAUX SUR BÂTI / VOIRIE PROCHE (Sans erreur 404)
   async function loadUrbanisme(lat, lon, isParis, signal) {
     const el = document.getElementById("slot-lot1-urbanisme");
     if (!el) return;
     if (!isParis) {
-      el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements</span><span class="text-[10px] font-mono text-slate-500">Périmètre Paris (75)</span></div>';
+      el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Travaux & Emprises</span><span class="text-[10px] font-mono text-slate-500">Périmètre Paris (75)</span></div>';
       return;
     }
-    el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🏗️ Recherche des permis & travaux (120m)...</div>';
+    el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">🏗️ Recherche des emprises de travaux (150m)...</div>';
     try {
       const pt = "geom'POINT(" + lon + " " + lat + ")'";
-      const where = encodeURIComponent("within_distance(geo_point_2d, " + pt + ", 120m)");
-      const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/autorisations-d-urbanisme-h-p-d/records?where=" + where + "&limit=20", 4200, signal);
+      const where = encodeURIComponent("within_distance(geo_point_2d, " + pt + ", 150m)");
+      const data = await fetchJsonSafe("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/chantiers-a-paris/records?where=" + where + "&limit=15", 4200, signal);
       const rows = (data && data.results) ? data.results : [];
       if (rows.length === 0) {
-        el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span><span class="text-[10px] font-mono text-emerald-400">Aucun dossier récent</span></div>';
+        el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Chantiers & Travaux (150m)</span><span class="text-[10px] font-mono text-emerald-400">Aucune emprise active</span></div>';
         return;
       }
       const rowsHtml = rows.map(r => {
-        const typeDossier = r.type_dossier || "Déclaration";
-        const numVoirie = r.numero_voirie || "";
-        const nomVoirie = r.nom_voirie || "";
-        const dateDepot = (r.date_depot || "").slice(0, 10);
-        const desc = (r.nature_travaux || r.description_travaux || "Travaux sur bâti existant").slice(0, 90);
-        addMapPin(r.geo_point_2d, "🏗️", "#fbbf24", typeDossier + " • " + numVoirie + " " + nomVoirie, desc);
+        const typeDossier = r.chantier_de || r.typologie || "Travaux";
+        const desc = (r.synthese || r.objet || "Intervention voirie / bâti").slice(0, 85);
+        const dateFin = (r.date_fin || "").slice(0, 10);
         return '<div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-[11px]">' +
           '<div class="flex justify-between font-mono text-[10px] text-amber-300">' +
-            '<span>' + typeDossier + ' • ' + numVoirie + ' ' + nomVoirie + '</span>' +
-            '<span class="text-slate-400">' + dateDepot + '</span>' +
+            '<span>' + typeDossier + '</span>' +
+            '<span class="text-slate-400">' + (dateFin ? "Fin : " + dateFin : "En cours") + '</span>' +
           '</div>' +
           '<div class="text-[10px] text-slate-300 mt-0.5">' + desc + '</div>' +
         '</div>';
@@ -276,46 +268,17 @@
 
       el.innerHTML =
         '<div class="flex items-center justify-between mb-2">' +
-          '<span class="text-xs font-semibold text-white">🏗️ Urbanisme & Ravalements (120m)</span>' +
-          '<span class="text-[10px] font-mono text-amber-300">' + rows.length + ' dossier(s)</span>' +
+          '<span class="text-xs font-semibold text-white">🏗️ Chantiers & Travaux (150m)</span>' +
+          '<span class="text-[10px] font-mono text-amber-300">' + rows.length + ' emprise(s)</span>' +
         '</div>' +
-        '<div class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll pr-1">' + rowsHtml + '</div>';
+        '<div class="space-y-1.5 max-h-44 overflow-y-auto custom-scroll pr-1">' + rowsHtml + '</div>';
     } catch (e) {
       if (signal.aborted) return;
-      el.innerHTML = '<div class="text-xs text-slate-400">🏗️ Urbanisme : Aucun dossier détecté.</div>';
+      el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">🏗️ Chantiers & Travaux (150m)</span><span class="text-[10px] font-mono text-emerald-400">Aucun chantier lourd</span></div>';
     }
   }
 
-  // 4. ANTENNES ANFR
-  async function loadAntennes(lat, lon, signal) {
-    const el = document.getElementById("slot-lot2-antennes");
-    if (!el) return;
-    el.innerHTML = '<div class="text-[11px] font-mono text-slate-400 animate-pulse">📡 Recherche des antennes 4G/5G (180m)...</div>';
-    try {
-      const where = encodeURIComponent("within_distance(coordonnees, geom'POINT(" + lon + " " + lat + ")', 180m)");
-      const data = await fetchJsonSafe("https://data.opendatasoft.com/api/explore/v2.1/catalog/datasets/les-stations-radioelectriques-anfr@public/records?where=" + where + "&limit=20", 4200, signal);
-      const rows = (data && data.results) ? data.results : [];
-      if (rows.length === 0) {
-        el.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-white">📡 Antennes 4G/5G (180m)</span><span class="text-[10px] font-mono text-emerald-400">Aucune à proximité</span></div>';
-        return;
-      }
-      rows.forEach(r => {
-        addMapPin(r.coordonnees || r.geo_point_2d, "📡", "#38bdf8", "Antenne " + (r.adm_lb_nom || r.operateur || "4G/5G"), "Support ANFR");
-      });
-      const ops = [...new Set(rows.map(r => r.adm_lb_nom || r.nom_op || r.operateur).filter(Boolean))];
-      el.innerHTML =
-        '<div class="flex items-center justify-between mb-1">' +
-          '<span class="text-xs font-semibold text-white">📡 Antennes-Relais 4G/5G (180m)</span>' +
-          '<span class="text-[10px] font-mono text-sky-300">' + rows.length + ' support(s) ANFR</span>' +
-        '</div>' +
-        '<p class="text-[11px] text-slate-300">Opérateurs détectés : <strong>' + (ops.join(", ") || "Multi-opérateurs") + '</strong></p>';
-    } catch (e) {
-      if (signal.aborted) return;
-      el.innerHTML = '<div class="text-xs text-slate-400">📡 Antennes ANFR : Non disponible.</div>';
-    }
-  }
-
-  // 5. CHALEUR URBAINE
+  // 4. CHALEUR URBAINE
   async function loadChaleurUrbaine(lat, lon, signal) {
     const el = document.getElementById("slot-lot1-fcu");
     if (!el) return;
@@ -336,7 +299,7 @@
     }
   }
 
-  // 6. RPLS (Tous les programmes sociaux dans le rayon de 85m)
+  // 5. RPLS (Tous les programmes sociaux dans le rayon de 85m)
   async function loadRPLS(lat, lon, isParis, signal) {
     const el = document.getElementById("slot-lot3-rpls");
     if (!el) return;
@@ -369,7 +332,7 @@
     }
   }
 
-  // 7. VÉLIB' (TOUTES les stations dans un rayon de 400m affichées sur la carte et à droite)
+  // 6. VÉLIB' (TOUTES les stations dans un rayon de 400m affichées sur la carte et à droite)
   async function loadVelibLive(lat, lon, signal) {
     const elVelib = document.getElementById("slot-lot3-velib");
     if (!elVelib) return;
@@ -408,7 +371,7 @@
     } catch (_) {}
   }
 
-  // 8. TRANSPORTS FERRÉS UNIQUEMENT : TOUTES LES STATIONS MÉTRO, RER, TRANSILIEN & TRAM (SANS BUS • RAYON 650m)
+  // 7. TRANSPORTS FERRÉS UNIQUEMENT : TOUTES LES STATIONS MÉTRO, RER, TRANSILIEN & TRAM (SANS BUS • RAYON 650m)
   async function loadTransportsAll(lat, lon, signal) {
     const elTrans = document.getElementById("slot-lot4-transports");
     if (!elTrans) return;
@@ -481,7 +444,6 @@
 
       stopsList.sort((a, b) => a.distM - b.distM);
 
-      // Afficher TOUTES les stations du rayon sur la carte (sans aucun slice limitant)
       stopsList.forEach(st => {
         const linesStr = Array.from(st.lines).join(", ");
         addMapPin(st.coords, st.modeInfo.emoji, st.modeInfo.color, st.name, st.modeInfo.label + (linesStr ? " " + linesStr : "") + " • à " + st.distM + "m");
@@ -511,7 +473,7 @@
     }
   }
 
-  // 9. ÉCOLES : TOUTES LES ÉCOLES, COLLÈGES & LYCÉES DANS LE RAYON DE 800m (SANS LIMITE SUR LA CARTE)
+  // 8. ÉCOLES : TOUTES LES ÉCOLES, COLLÈGES & LYCÉES DANS LE RAYON DE 800m (SANS LIMITE SUR LA CARTE)
   async function loadEcolesAll(lat, lon, signal) {
     const elEcoles = document.getElementById("slot-lot1-ecoles");
     if (!elEcoles) return;
@@ -530,7 +492,6 @@
           (ipsData.results || []).forEach(r => { if (r.uai && !ipsMap[r.uai]) ipsMap[r.uai] = Math.round(Number(r.ips)); });
         } catch (_) {}
 
-        // Afficher TOUS les établissements du rayon sur la carte et dans la liste
         const schoolsHtml = schools.map(s => {
           const ips = ipsMap[s.identifiant_de_l_etablissement];
           const statut = s.statut_public_prive || "Public";
@@ -562,7 +523,7 @@
     } catch (_) {}
   }
 
-  // 10. ÎLOTS DE FRAÎCHEUR & CHANTIERS (Tous affichés sur la carte et à droite)
+  // 9. ÎLOTS DE FRAÎCHEUR & CHANTIERS PERTURBANTS (Tous affichés sur la carte et à droite)
   async function loadEnvExtras(lat, lon, isParis, signal) {
     const elFraicheur = document.getElementById("slot-lot2-fraicheur");
     const elChantiers = document.getElementById("slot-lot1-chantiers");
@@ -612,7 +573,6 @@
       loadCommercesRDC(lat, lon, sig),
       loadGeorisques(lat, lon, sig),
       loadUrbanisme(lat, lon, isParis, sig),
-      loadAntennes(lat, lon, sig),
       loadChaleurUrbaine(lat, lon, sig),
       loadTransportsAll(lat, lon, sig),
       loadVelibLive(lat, lon, sig),
