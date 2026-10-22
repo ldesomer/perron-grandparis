@@ -472,13 +472,13 @@
         <div class="grid grid-cols-2 gap-2.5">
           <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-400">Prix Moyen Quartier</span>
+              <span class="text-[11px] text-slate-400">Prix Moyen DVF</span>
               <span id="dvf-count-badge" class="text-[10px] font-mono text-amber-400">Chargement...</span>
             </div>
             <div class="mt-1 flex items-baseline gap-1.5">
               <span id="dvf-price-m2" class="font-mono font-bold text-base sm:text-lg text-white">— €/m²</span>
             </div>
-            <p id="dvf-Updated-hint" class="text-[10px] text-slate-500 font-mono mt-1">Moyenne secteur (&lt;220m)</p>
+            <p id="dvf-Updated-hint" class="text-[10px] text-slate-500 font-mono mt-1">Actes notariés du secteur (~220m)</p>
           </div>
 
           <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
@@ -509,8 +509,8 @@
         <div class="rounded-xl bg-slate-900/90 border border-slate-800 overflow-hidden">
           <div class="px-3 py-2 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-900">
             <div>
-              <span class="text-xs font-semibold text-slate-200 block">Ventes de la parcelle sélectionnée</span>
-              <span id="dvf-source-label" class="text-[10px] font-mono text-amber-300/90">Uniquement sur cette parcelle cadastrale</span>
+              <span class="text-xs font-semibold text-slate-200 block">Dernières ventes notariées (DVF)</span>
+              <span id="dvf-source-label" class="text-[10px] font-mono text-slate-400">Parcelle & secteur immédiat (~220m)</span>
             </div>
             <span id="dvf-vintage-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
               2025 – S1 2026
@@ -521,7 +521,7 @@
               <thead>
                 <tr class="border-b border-slate-800/80 text-[10px] font-mono uppercase text-slate-400 bg-slate-950/50">
                   <th class="py-2 pl-3 pr-1 w-[74px]">Date</th>
-                  <th class="py-2 px-1">Bien (Parcelle)</th>
+                  <th class="py-2 px-1">Bien & Proximité</th>
                   <th class="py-2 px-1 text-right w-[56px]">Surf.</th>
                   <th class="py-2 pl-1 pr-3 text-right w-[108px]">Prix & €/m²</th>
                 </tr>
@@ -682,7 +682,7 @@
           <p class="font-semibold text-emerald-300 mb-1">2. Croisement en Temps Réel à la Parcelle</p>
           <ul class="list-disc pl-4 space-y-1 text-slate-400">
             <li><strong class="text-white">Cadastre & Emprise :</strong> Flux WMTS IGN Géoplateforme (<code class="text-amber-300">CADASTRALPARCELS.PARCELLAIRE_EXPRESS</code>) et API Carto Cadastre IGN.</li>
-            <li><strong class="text-white">Mutations DVF (2025 – S1 2026) :</strong> Le Prix Moyen est calculé sur le secteur immédiat (&lt;220 m), tandis que la liste des transactions affiche exclusivement les ventes intervenues sur la parcelle cadastrale sélectionnée.</li>
+            <li><strong class="text-white">Mutations DVF (2025 – S1 2026) :</strong> Fichiers communaux S1 2026 (<code class="text-amber-300">/dvf-2026/</code> extraits de la publication DGFiP) et Geo-DVF 2025 dans un rayon de ~220 m autour de la parcelle, triés par date décroissante.</li>
             <li><strong class="text-white">DPE ADEME :</strong> Base nationale <code class="text-amber-300">dpe03existant</code> filtrée strictement sur l'identifiant BAN et l'adresse de la parcelle.</li>
             <li><strong class="text-white">Voirie & Propreté :</strong> API OpenData Paris <code class="text-amber-300">dans-ma-rue</code> sur les 4 derniers mois dans un rayon de 85 m.</li>
           </ul>
@@ -781,7 +781,6 @@
       let activeInspectionId = 0;
       let isMobileSheetOpen = false;
 
-      // Gestion du tiroir mobile (Bottom Sheet)
       const dossierPanel = document.getElementById("dossier-panel");
       const mobileHandle = document.getElementById("mobile-sheet-handle");
       const mobileToggleLabel = document.getElementById("mobile-sheet-toggle-label");
@@ -1350,7 +1349,7 @@
       }
 
       // ============================================================================
-      // MOTEUR DVF — DOSSIER LOCAL ./dvf-2026/{dept}/{codeInsee}.csv + CSV 2025
+      // MOTEUR DVF — DOSSIER LOCAL ./dvf-2026/{dept}/{codeInsee}.csv + CSV 2025 (RAYON ~220m)
       // ============================================================================
       const MIN_DVF_TIMESTAMP_2025 = Date.UTC(2025, 0, 1);
       const MIN_DVF_TIMESTAMP_2026 = Date.UTC(2026, 0, 1);
@@ -1363,6 +1362,17 @@
           return s.replace(/ /g, "0");
         }
         return s.replace(/\s+/g, "");
+      }
+
+      function isSameCadastralParcel(parcelA, parcelB) {
+        if (!parcelA || !parcelB) return false;
+        const a = normalizeParcelId(parcelA);
+        const b = normalizeParcelId(parcelB);
+        if (a === b) return true;
+        if (a.startsWith("75") && b.startsWith("75") && a.length === 14 && b.length === 14) {
+          return a.slice(3) === b.slice(3);
+        }
+        return false;
       }
 
       async function fetchLocalGithubDvfS12026Text(codeInsee) {
@@ -1513,23 +1523,69 @@
         return aggregated;
       }
 
-      // Compare deux identifiants de parcelle en ignorant la différence 751xx vs 750xx sur Paris
-      function isSameCadastralParcel(parcelA, parcelB) {
-        if (!parcelA || !parcelB) return false;
-        const a = normalizeParcelId(parcelA);
-        const b = normalizeParcelId(parcelB);
-        if (a === b) return true;
-        // Sur Paris, le code commune DGFiP est 75101..75120 ou 75001..75020, mais les 11 derniers caractères (arrondissement + section + plan) sont identiques
-        if (a.startsWith("75") && b.startsWith("75") && a.length === 14 && b.length === 14) {
-          return a.slice(3) === b.slice(3);
+      async function fetchLocalBboxDvfCerema(lat, lon, targetParcelId) {
+        const d = 0.0022;
+        const bbox = `${(lon - d).toFixed(5)},${(lat - d).toFixed(5)},${(lon + d).toFixed(5)},${(lat + d).toFixed(5)}`;
+        const url = `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut=2025&page_size=50`;
+
+        try {
+          const res = await fetchWithTimeout(url, 4500);
+          if (!res.ok) return [];
+          const data = await res.json();
+          const features = data.features || [];
+          const list = [];
+
+          features.forEach(f => {
+            const p = f.properties || f;
+            const rawDate = p.datemut || p.date_mutation;
+            const ts = parseDateToTimestamp(rawDate);
+            if (ts < MIN_DVF_TIMESTAMP_2025) return;
+
+            const libType = String(p.libtypbien || p.type_local || "Appartement");
+            if (/ACTIVIT|COMMERC|BUREAU|INDUSTRI|DEPENDANCE|TERRAIN/i.test(libType)) return;
+
+            const val = parseFloat(p.valeurfonc || p.valeur_fonciere || 0);
+            const surf = parseFloat(p.sbati || p.surface_reelle_bati || 0);
+            if (val < 30000 || surf < 9) return;
+            const pm2 = Math.round(val / surf);
+            if (pm2 < 2200 || pm2 > 32000) return;
+
+            const parcels = Array.isArray(p.l_idpar) ? p.l_idpar : [];
+            const firstParcel = parcels[0] || "";
+
+            let fLat = null, fLon = null;
+            if (f.geometry && f.geometry.coordinates) {
+              const c = f.geometry.coordinates;
+              if (typeof c[0] === "number") { fLon = c[0]; fLat = c[1]; }
+              else if (Array.isArray(c[0]) && typeof c[0][0] === "number") { fLon = c[0][0]; fLat = c[0][1]; }
+              else if (Array.isArray(c[0]) && Array.isArray(c[0][0]) && typeof c[0][0][0] === "number") { fLon = c[0][0][0]; fLat = c[0][0][1]; }
+            }
+
+            const distM = (fLat && fLon) ? haversineMeters(lat, lon, fLat, fLon) : 85;
+            const exactParcel = Boolean(targetParcelId && (parcels.includes(targetParcelId) || firstParcel === targetParcelId));
+
+            list.push({
+              timestamp: ts,
+              price: Math.round(val),
+              surface: Math.round(surf),
+              priceM2: pm2,
+              type: libType.toUpperCase().includes("MAISON") ? "Maison" : "Appartement",
+              parcelId: firstParcel,
+              addr: "",
+              exactParcel,
+              distM
+            });
+          });
+
+          list.sort((a, b) => b.timestamp - a.timestamp);
+          return list;
+        } catch (_) {
+          return [];
         }
-        return false;
       }
 
       async function fetchRealDVF(lat, lon, targetParcelId, codeInsee, streetName, houseNumber) {
-        if (!codeInsee) {
-          return { parcelMutations: [], avgSectorPriceM2: null, sectorCount: 0, scopeLabel: "Code commune manquant" };
-        }
+        if (!codeInsee) return { mutations: [], scopeLabel: "Code commune manquant" };
 
         const allMutations = await loadCommuneDvf2025And2026(codeInsee);
 
@@ -1549,9 +1605,7 @@
               String(m.numVoie || "").trim().toUpperCase() === cleanHouseNum
             );
 
-            // Une vente appartient à la parcelle cliquée si son id_parcelle correspond OU si son numéro + rue correspondent exactement
             const exactParcel = Boolean(matchById || matchByExactAddress);
-
             const sameSection = Boolean(
               targetSectionLetters && mParcel.length >= 10 && mParcel.slice(8, 10) === targetSectionLetters
             );
@@ -1562,44 +1616,39 @@
             } else if (m.lat && m.lon) {
               distM = haversineMeters(lat, lon, m.lat, m.lon);
             } else if (sameStreet) {
-              distM = 60;
+              distM = 55;
             } else if (sameSection) {
-              distM = 120;
+              distM = 115;
             }
 
             return { ...m, exactParcel, sameSection, sameStreet, distM };
           });
 
-          // 1. Calcul du PRIX MOYEN sur le quartier/secteur (<220m, même rue ou même section)
-          let sectorMatches = scored.filter(m => m.exactParcel || m.sameStreet || m.distM <= 220 || m.sameSection);
-          if (sectorMatches.length === 0) {
-            sectorMatches = scored.filter(m => m.distM <= 500);
+          let localMatches = scored.filter(m => m.exactParcel || m.sameStreet || m.distM <= 220 || m.sameSection);
+          let scopeLabel = "Parcelle & Secteur immédiat (~220m)";
+
+          if (localMatches.length === 0) {
+            localMatches = scored.filter(m => m.distM <= 500);
+            scopeLabel = "Quartier proche (<500m)";
           }
-          if (sectorMatches.length === 0) {
-            sectorMatches = scored;
+          if (localMatches.length === 0) {
+            localMatches = scored;
+            scopeLabel = `Commune (${codeInsee})`;
           }
 
-          const avgSectorPriceM2 = sectorMatches.length > 0
-            ? Math.round(sectorMatches.reduce((acc, item) => acc + item.priceM2, 0) / sectorMatches.length)
-            : null;
-
-          // 2. Liste des ventes : UNIQUEMENT les ventes de la parcelle cliquée (triées de la plus récente à la plus ancienne)
-          const parcelOnlyMutations = scored.filter(m => m.exactParcel);
-          parcelOnlyMutations.sort((a, b) => b.timestamp - a.timestamp);
+          // TRI 100% CHRONOLOGIQUE DÉCROISSANT (Les ventes de S1 2026 apparaissent en haut du tableau !)
+          localMatches.sort((a, b) => b.timestamp - a.timestamp);
 
           return {
-            parcelMutations: parcelOnlyMutations,
-            avgSectorPriceM2,
-            sectorCount: sectorMatches.length,
-            scopeLabel: `Parcelle ${normTargetParcel || "sélectionnée"} uniquement`
+            mutations: localMatches.slice(0, 25),
+            scopeLabel
           };
         }
 
+        const bboxMutations = await fetchLocalBboxDvfCerema(lat, lon, targetParcelId);
         return {
-          parcelMutations: [],
-          avgSectorPriceM2: null,
-          sectorCount: 0,
-          scopeLabel: "Parcelle sélectionnée uniquement"
+          mutations: bboxMutations.slice(0, 25),
+          scopeLabel: "Rayon immédiat de la parcelle (~200m)"
         };
       }
 
@@ -1861,7 +1910,7 @@
         document.getElementById("parcel-id-badge").textContent = "Cadastre...";
         document.getElementById("dvf-count-badge").textContent = "Chargement...";
         document.getElementById("dvf-table-body").innerHTML = `
-          <tr><td colspan="4" class="py-4 px-3 text-center text-slate-400 text-xs">Recherche des actes de la parcelle...</td></tr>
+          <tr><td colspan="4" class="py-4 px-3 text-center text-slate-400 text-xs">Recherche des actes notariés...</td></tr>
         `;
 
         selectedParcelGroup.clearLayers();
@@ -1959,20 +2008,22 @@
             dvfSourceLabel.textContent = dvfData.scopeLabel;
           }
 
-          // 1. Affichage du Prix Moyen sur le Quartier / Secteur
-          if (dvfData.avgSectorPriceM2) {
-            dvfPriceEl.textContent = `${dvfData.avgSectorPriceM2.toLocaleString("fr-FR")} €/m²`;
-            dvfCountBadge.textContent = `${dvfData.parcelMutations.length} sur parcelle`;
-          } else {
-            dvfPriceEl.textContent = "— €/m²";
-            dvfCountBadge.textContent = "0 sur parcelle";
-          }
-
-          // 2. Affichage de la liste : UNIQUEMENT les ventes de la parcelle sélectionnée
-          if (dvfData.parcelMutations.length > 0) {
-            dvfBody.innerHTML = dvfData.parcelMutations.map(m => {
+          if (dvfData.mutations.length > 0) {
+            const avgM2 = Math.round(dvfData.mutations.reduce((a, b) => a + b.priceM2, 0) / dvfData.mutations.length);
+            dvfPriceEl.textContent = `${avgM2.toLocaleString("fr-FR")} €/m²`;
+            dvfCountBadge.textContent = `${dvfData.mutations.length} acte(s)`;
+            dvfBody.innerHTML = dvfData.mutations.map(m => {
               const is2026 = m.timestamp >= MIN_DVF_TIMESTAMP_2026;
               const piecesTag = m.pieces ? ` • ${m.pieces}p` : "";
+              let proxBadge = '<span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">Secteur</span>';
+              if (m.exactParcel) {
+                proxBadge = '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parcelle</span>';
+              } else if (m.sameStreet) {
+                proxBadge = '<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Même voie</span>';
+              } else if (m.distM < 9000) {
+                proxBadge = `<span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">~${m.distM}m</span>`;
+              }
+
               return `
                 <tr class="hover:bg-slate-800/50 transition-colors">
                   <td class="py-2 pl-3 pr-1 align-top">
@@ -1981,7 +2032,7 @@
                   <td class="py-2 px-1 text-slate-200 align-top">
                     <div class="flex items-center gap-1 flex-wrap">
                       <span class="font-sans font-medium text-[11px] text-white">${m.type}${piecesTag}</span>
-                      <span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parcelle</span>
+                      ${proxBadge}
                     </div>
                     <span class="block text-[10px] text-slate-400 truncate">${m.addr || ("Parcelle " + (m.parcelId || ""))}</span>
                   </td>
@@ -1994,11 +2045,12 @@
               `;
             }).join("");
           } else {
+            dvfPriceEl.textContent = "Aucune vente";
+            dvfCountBadge.textContent = "0 mutation";
             dvfBody.innerHTML = `
               <tr>
-                <td colspan="4" class="py-4 px-3 text-center text-slate-400 font-sans text-xs leading-relaxed">
-                  Aucune vente notariée enregistrée sur <strong class="text-slate-200">cette parcelle exacte</strong> en 2025 – S1 2026.<br/>
-                  <span class="text-[11px] text-slate-500">(Le prix moyen de secteur ci-dessus est calculé sur ${dvfData.sectorCount} vente(s) à proximité immédiate).</span>
+                <td colspan="4" class="py-4 px-3 text-center text-slate-400 font-sans text-xs">
+                  Aucune vente notariée publiée (2025 – S1 2026) dans le périmètre immédiat de cette parcelle.
                 </td>
               </tr>
             `;
@@ -2300,7 +2352,6 @@
       document.getElementById("btn-architecture-modal").addEventListener("click", () => archModal.classList.remove("hidden"));
       document.getElementById("close-architecture-modal").addEventListener("click", () => archModal.classList.add("hidden"));
 
-      // Au démarrage sur mobile, réduire le panneau choroplèthe par défaut pour dégager la carte
       if (window.innerWidth < 640) {
         setChoroplethCollapsed(true);
       }
